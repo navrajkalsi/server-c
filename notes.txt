@@ -1,0 +1,86 @@
+# Creating a socket
+A socket is like a two way door, I can write data into or read data out of it.
+
+If acting as a client, I do not need to bind the socket to an address or port, as the OS chooses one for me and sends request from the IP/port.
+
+If acting as a server, I need to bind the socket to a particular IP/port, so that the client knows what port and IP to target and make a request to.
+
+creating a socket only requires three parameters:
+1. The address/protocol family to target, IPv4(AF_INET) or IPv6(AF_INET6).
+2. Socket type, SOCK_STREAM (stream socket for TCP) or SOCK_DGRAM (datagram socket for UDP)
+3. The socket protocol type, mainly TCP (requires connection, every packet has to be received in order and confirmed with a ACK packet) or UDP (connectionless, the packet may or maynot arrive).
+0 protocol type: the OS automatically choose the appropriate protocol for the socket type
+
+The socket() returns an int, a file descriptor, that is used to refer to the socket further on.
+
+
+*********************** SERVER ****************************
+it is always a good idea to set the memeory to 0 with memset()
+
+# Binding:
+after creating a socket, I need to bind the socket to an address and port.
+the address must be on the current network, I cannot just put google's IP and expect to run the server on their computer:)
+more specifically, the address should be of one of the interfaces(wifi, ethernet, etc) of the machine
+cause then how will i know if a request is received, as the request will then come on that particular address
+
+The socket is binded to a 'struct sockaddr' which can be a 'sockaddr_in' or 'sockaddr_in6', depends on what familty does the socket use.
+Have to set the family of the sockaddr either way as all functions and the kernel expect the 'struct sockaddr' and not the specific versions.
+We do not use struct sockaddr, as it does not store the particular fields for the different version and is just a general purpose struct, it only stores
+the sa_family and all its other data in an opaque array.
+When passing 'sockaddr_in' or 'sockaddr_in6', have to cast it to 'sockaddr' as the functions only expect the general struct and they use the data based on
+the sa_family of the sockaddr.
+
+sockaddr_in has fields:
+1. sin_family: AF_INET, have to set because of reason stated above
+2. sin_port: htons(port), have to convert it from host byte order to network byte order(always Big-endian)
+3. sin_addr: this is holds the actual ip address to bind to, it is a 'struct in_addr' which has a single field of s_addr of type unit32_t (as IP4 is a 32 bit address).
+It can be INADDR_ANY(binds to 0.0.0.0, meaning bind to all interfaces, every interface as its own ip address), or to localhost or to all ip6 interfaces with '::'
+
+Note: you cannot just enter a string ip address, it has to be converted into binary form with inet_pton() or, if needed, back to human readable with inet_ntop() (network to presentation)
+same with localhost(127.0.0.1) it has to be converted to binary and set to sin_addr.s_addr field with inet_pton()
+
+bind() is used to assign the address and port in the sockaddr struct to the socket or vice versa with the help of the socket file descriptor created in the beginning.
+
+
+# Listening
+listen() is used to start a server and listen on the address and port via the socket
+it takes in two params:
+1. socket filedescriptor: address and port info is not required again as the socket has been binded.
+2. backlog: max number of clients that can be in the queue, ready to be accepted. These connections are unaccepted
+
+
+# Accepting
+Now we can accept() new connections.
+accept() takes in 3 arguments:
+1. the socket file descriptor, on which we are listening.
+2. pointer to a struct sockaddr, this is an output param and will be filled with the address info of the client connected
+3. addrlen: first this is an input param and contains the size of sockaddr passed, after completion this is changed to the length of the new struct with client's info
+// that is why this is a pointer to an int :) it also updates the passed length
+
+the accept() function returns another file descriptor, this is the file descriptor dedicated to the respective client, and all further communication with the said client is done
+via this fd so that the main socket fd remains free to listen and accept. Just for clarification, the client fds are NOT binded to any other address or port, they use the same
+port and address as the main socket fd.
+
+
+# Reading and responding
+now we read() the request sent by the client with read(), it accepts three params:
+1. client_fd: obviously
+2. a buffer
+3. the size of the buffer
+
+next we create a response string, this string contains the HTTP version and status code with content type
+next we write() the response the client socket fd, it takes in 3 args:
+1. client_fd
+2. response string
+3. len of response string
+
+
+# Closing connection
+after responding the conenction is closed with close(client_fd)
+
+
+Two ways to run server:
+1. pass argument to the path to run on
+2. run ./server to use the current directory
+
+server.html is always supposed to be with the server.c file, as it uses ./server.html
