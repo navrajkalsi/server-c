@@ -5,12 +5,14 @@
 #include <magic.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define PORT 1419
@@ -19,6 +21,8 @@
 #define READ_BUFFER_SIZE 4096
 #define METHOD_SIZE 10
 #define PATH_SIZE 4096
+
+volatile sig_atomic_t running = 1;
 
 struct client_info {
   int client_fd;
@@ -34,7 +38,23 @@ void err_n_die(const char operation[]) {
   printf("%s failed!\n", operation);
   printf("Error Code: %d\n", errno);
   printf("Error Message: %s\n", strerror(errno));
-  exit(-1);
+  exit(EXIT_FAILURE);
+}
+
+void shutdown_handler(int s) {
+  (void)s;
+  running = 0;
+}
+
+void sigchild_handler(int s) {
+  (void)s;
+
+  int saved_errno = errno;
+
+  while (waitpid(-1, NULL, WNOHANG) > 0)
+    ;
+
+  errno = saved_errno;
 }
 
 int set_root_dir(void) {
@@ -95,7 +115,7 @@ int generate_header(char **header, const char *status, const char *content_type,
     return -1;
   }
 
-  snprintf(*header, final_len, header_template, status, content_type,
+  snprintf(*header, final_len + 1, header_template, status, content_type,
            content_length);
   *header_size = final_len;
   return 0;
@@ -231,7 +251,24 @@ int main(void) {
   if (listen(server_fd, BACKLOG) == -1)
     err_n_die("Listening");
 
-  while (1) {
+  struct sigaction sa;
+  sa.sa_handler = sigchild_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART;
+
+  if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    err_n_die("Reaping Child Processes");
+
+  struct sigaction sa_shutdown;
+  sa_shutdown.sa_handler = shutdown_handler;
+  sigemptyset(&sa_shutdown.sa_mask);
+  sa_shutdown.sa_flags = 0;
+
+  if (sigaction(SIGINT, &sa_shutdown, NULL) == -1 ||
+      sigaction(SIGTERM, &sa_shutdown, NULL) == -1)
+    err_n_die("Shutting Down");
+
+  while (running) {
 
     struct client_info new_client;
     struct sockaddr client_address;
@@ -278,6 +315,8 @@ int main(void) {
       if (generate_response(&request_path[0], &response, &response_len) == -1)
         err_n_die("Generating Response");
 
+      printf("Reponse: %s\n", response);
+
       if (write(new_client.client_fd, response, response_len) == -1)
         err_n_die("Writing Response");
 
@@ -292,5 +331,11 @@ int main(void) {
     } else
       err_n_die("Forking");
   }
+
+  printf("Shutting Down\n");
+
+  if (close(server_fd) == -1)
+    err_n_die("Closing Server File Descriptor");
+
   return 0;
 }
