@@ -29,14 +29,13 @@
 volatile sig_atomic_t running = 1;
 
 // Client struct, store information on a client: file descriptor (returned by
-// accept function) ,client_address (filled by accept()) which can be parsed to
-// version 4 or 6 depending on usecase, address_len (also filled by accept()),
-// pointer to read_buffer (to read request into), pointer to request_method
-// (filled by parse_request()), pointer to request_path (also filled by
-// parse_request())
+// accept function) ,client_address (filled by accept()), address_len (also
+// filled by accept()), pointer to read_buffer (to read request into), pointer
+// to request_method (filled by parse_request()), pointer to request_path (also
+// filled by parse_request())
 struct client_info {
   int client_fd;
-  struct sockaddr_storage client_address;
+  struct sockaddr *client_address;
   socklen_t address_len;
   char read_buffer[READ_BUFFER_SIZE];
   char request_method[METHOD_SIZE];
@@ -101,19 +100,11 @@ int parse_request(const char *request, char *request_method,
     request_path += 1;
 
   // Getting actual absolute path of the target
-  if (!realpath(request_path, request_path)) {
-    // If the errno is set to 2, that means the requested directory/file does
-    // not exist Then the server serves the '404.html file instead'
-    if (errno == 2) {
-      if (!realpath(
-              "404.html",
-              request_path)) // If the file does not exist, request path is set
-                             // to the absolute path of 404.html file
-        return -1;
+  if (!realpath(request_path, request_path))
+    return -1;
 
-    } else
-      return -1;
-  }
+  printf("Request Method: %s\n", request_method);
+  printf("Request Path: %s\n", request_path);
 
   // Comparing the starting chars of the 'root_dir' and 'request_path' to
   // prevent any path traversal
@@ -201,7 +192,7 @@ int read_file(const char *request_path, char **response, unsigned int *size) {
 
   // Number of bytes read, used as size of response
   // Reading to the end of header index
-  *size += fread(&((*response)[header_size]), sizeof(char), pos, file);
+  *size += fread(&((*response)[header_size - 1]), sizeof(char), pos, file);
   *size += header_size;
   // Lesson learned
   (*response)[*size] = '\0';
@@ -363,8 +354,8 @@ int main(void) {
     struct client_info new_client;
 
     new_client.client_fd =
-        accept(server_fd, (struct sockaddr *)&new_client.client_address,
-               &new_client.address_len);
+        accept(server_fd, (struct sockaddr *)new_client.client_address,
+               &(new_client.address_len));
 
     if (new_client.client_fd == -1)
       err_n_die("Accepting");
@@ -388,16 +379,17 @@ int main(void) {
       if (set_root_dir() == -1)
         err_n_die("Setting Root Directory");
 
-      if (parse_request(new_client.read_buffer, new_client.request_method,
-                        new_client.request_path) == -1)
+      if (parse_request(&(new_client.read_buffer)[0],
+                        &(new_client.request_method)[0],
+                        &(new_client.request_path)[0]) == -1)
         err_n_die("Parsing Request");
 
-      if (strncmp(new_client.request_method, "GET", 3) != 0)
-        err_n_die("Request Method");
-
-      if (generate_response(new_client.request_path, &new_client.response,
-                            &new_client.response_len) == -1)
+      if (generate_response(&(new_client.request_path)[0],
+                            &(new_client.response),
+                            &(new_client.response_len)) == -1)
         err_n_die("Generating Response");
+
+      printf("Reponse: %s\n", new_client.response);
 
       if (write(new_client.client_fd, new_client.response,
                 new_client.response_len) == -1)

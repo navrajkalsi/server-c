@@ -29,10 +29,20 @@
 volatile sig_atomic_t running = 1;
 
 // Client struct, store information on a client: file descriptor (returned by
-// accept function) and client_address (filled by accept())
+// accept function) ,client_address (filled by accept()) which can be parsed to
+// version 4 or 6 depending on usecase, address_len (also filled by accept()),
+// pointer to read_buffer (to read request into), pointer to request_method
+// (filled by parse_request()), pointer to request_path (also filled by
+// parse_request())
 struct client_info {
   int client_fd;
-  struct sockaddr client_address;
+  struct sockaddr_storage client_address;
+  socklen_t address_len;
+  char read_buffer[READ_BUFFER_SIZE];
+  char request_method[METHOD_SIZE];
+  char request_path[PATH_SIZE];
+  char *response;
+  unsigned int response_len;
 };
 
 // Main server socket file descriptor
@@ -91,11 +101,19 @@ int parse_request(const char *request, char *request_method,
     request_path += 1;
 
   // Getting actual absolute path of the target
-  if (!realpath(request_path, request_path))
-    return -1;
+  if (!realpath(request_path, request_path)) {
+    // If the errno is set to 2, that means the requested directory/file does
+    // not exist Then the server serves the '404.html file instead'
+    if (errno == 2) {
+      if (!realpath(
+              "404.html",
+              request_path)) // If the file does not exist, request path is set
+                             // to the absolute path of 404.html file
+        return -1;
 
-  printf("Request Method: %s\n", request_method);
-  printf("Request Path: %s\n", request_path);
+    } else
+      return -1;
+  }
 
   // Comparing the starting chars of the 'root_dir' and 'request_path' to
   // prevent any path traversal
@@ -183,7 +201,7 @@ int read_file(const char *request_path, char **response, unsigned int *size) {
 
   // Number of bytes read, used as size of response
   // Reading to the end of header index
-  *size += fread(&((*response)[header_size - 1]), sizeof(char), pos, file);
+  *size += fread(&((*response)[header_size]), sizeof(char), pos, file);
   *size += header_size;
   // Lesson learned
   (*response)[*size] = '\0';
@@ -336,18 +354,19 @@ int main(void) {
 
   // Loop to accept incoming connections)
   while (running) {
+    printf("Server Running at Port: %d\n", PORT);
     // Accepting connections, requires the server_fd and an empty 'struct
     // sockaddr' and its length. On connection, fills it with the address info
     // of the client After accepting, all communication with the said client is
     // done on the new client_fd and server_fd still remains open listening for
     // new conenctions.
     struct client_info new_client;
-    struct sockaddr client_address;
-    socklen_t add_len = sizeof(client_address);
 
-    int client_fd = accept(server_fd, &client_address, &add_len);
+    new_client.client_fd =
+        accept(server_fd, (struct sockaddr *)&new_client.client_address,
+               &new_client.address_len);
 
-    if (client_fd == -1)
+    if (new_client.client_fd == -1)
       err_n_die("Accepting");
 
     pid_t pid = fork();
@@ -356,53 +375,42 @@ int main(void) {
       if (close(server_fd) == -1) // Child should not be listening on server
         err_n_die("Closing Server File Descriptor");
 
-      // Variables, all these are child specific
-      // Reading requests
-      char read_buffer[READ_BUFFER_SIZE];
-      char request_method[METHOD_SIZE];
-      char request_path[PATH_SIZE];
-
-      memset(&read_buffer, 0, READ_BUFFER_SIZE);
-
-      // Responding
-      char *response = NULL;
-      unsigned int response_len = 0;
-
-      new_client.client_fd = client_fd;
-      new_client.client_address = client_address;
-
       // Reading and responding
       // Now we can read the request from the client and send any response.
       int bytes_read =
-          read(new_client.client_fd, read_buffer, READ_BUFFER_SIZE);
+          read(new_client.client_fd, new_client.read_buffer, READ_BUFFER_SIZE);
 
       if (bytes_read == -1)
         err_n_die("Reading");
-      read_buffer[bytes_read] = '\0';
+      (new_client.read_buffer)[bytes_read] = '\0';
 
       memset(root_dir, 0, PATH_SIZE);
       if (set_root_dir() == -1)
         err_n_die("Setting Root Directory");
 
-      if (parse_request(&read_buffer[0], &request_method[0],
-                        &request_path[0]) == -1)
+      if (parse_request(new_client.read_buffer, new_client.request_method,
+                        new_client.request_path) == -1)
         err_n_die("Parsing Request");
 
-      if (generate_response(&request_path[0], &response, &response_len) == -1)
+      if (strncmp(new_client.request_method, "GET", 3) != 0)
+        err_n_die("Request Method");
+
+      if (generate_response(new_client.request_path, &new_client.response,
+                            &new_client.response_len) == -1)
         err_n_die("Generating Response");
 
-      printf("Reponse: %s\n", response);
-
-      if (write(new_client.client_fd, response, response_len) == -1)
+      if (write(new_client.client_fd, new_client.response,
+                new_client.response_len) == -1)
         err_n_die("Writing Response");
 
       if (close(new_client.client_fd) == -1)
         err_n_die("Closing Connection");
 
-      free(response);
+      free(new_client.response);
       exit(0);
     } else if (pid > 0) {
-      if (close(client_fd) == -1) // Parent does not need client's fd anymore
+      if (close(new_client.client_fd) ==
+          -1) // Parent does not need client's fd anymore
         err_n_die("Closing Client File Descriptor");
     } else
       err_n_die("Forking");
