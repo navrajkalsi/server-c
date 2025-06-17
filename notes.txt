@@ -84,3 +84,7 @@ Two ways to run server:
 2. run ./server to use the current directory
 
 server.html is always supposed to be with the server.c file, as it uses ./server.html
+
+"r" mode in POSIX works for binary data too (images, etc)
+
+Making a server was all about dealing with edgecases, as it should for most part be a simple 'file server'
