@@ -1,4 +1,4 @@
-const files_list = document.querySelector("ul"), // Gets the first ul element
+const files_list = document.getElementsByTagName("ul")[0],
   current_url = window.location.href,
   current_path = new URL(current_url).pathname,
   file_preview = document.getElementById("file-preview").firstElementChild;
@@ -6,35 +6,16 @@ const files_list = document.querySelector("ul"), // Gets the first ul element
 // This is the 'li' element which would be selected
 var selected_file = null;
 
-// Takes in a relative url/path and make a request for the current_url + url
-function visit_url(url) {
-  if (!url)
-    return;
-  if (url.endsWith("/"))
-    url = url.slice(0, -1);
-
-  window.location.href = current_url + "/" + url;
-}
-
-// Makes a request for the selected file name, if any. Fills the file preview element with the response
 function show_file() {
   if (selected_file == null)
     return;
+  if (selected_file.textContent.endsWith("/"))
+    return;
 
-  // Handling user selecting a directory
-  if (selected_file.textContent.endsWith("/")) {
-    fetch(current_path + "/" + selected_file.textContent)
-      .then(async response => {
-        // Using innerHTML instead of textContent cause I want to render the ul element in the DOM and not just copy and paste the response in pre tag
-        var response_text = await response.text();
-        file_preview.innerHTML = response_text.substring(response_text.indexOf("<ul"), response_text.indexOf("</ul>") + 5);
-      });
-  }
-  else
-    fetch(current_path + "/" + selected_file.textContent)
-      .then(async response => {
-        file_preview.textContent = await response.text();
-      });
+  fetch(current_path + "/" + selected_file.textContent)
+    .then(async response => {
+      file_preview.innerHTML = await response.text();
+    });
 };
 
 function select_file(to_select) {
@@ -63,9 +44,9 @@ function handle_motion() {
     if (event.key == "Enter") {
       var file_name = selected_file.textContent;
       if (file_name.endsWith("/"))
-        visit_url(file_name.substring(0, file_name.length - 1));
+        window.location.href = current_url + "/" + file_name.substring(0, file_name.length - 1);
       else
-        visit_url(file_name);
+        window.location.href = current_url + "/" + file_name;
     }
   }
 }
@@ -73,11 +54,10 @@ function handle_motion() {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("current_url").textContent = current_path;
 
-  files_list.id = "main-list"; // Adding id to the list for styles
-
   for (const file of files_list.children) {
-    file.onclick = () =>
-      visit_url(file.textContent);
+    file.onclick = () => {
+      window.location.href = current_url + '/' + file.textContent;
+    };
   }
 
   // Highlighting the first file

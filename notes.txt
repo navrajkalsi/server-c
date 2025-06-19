@@ -88,3 +88,5 @@ server.html is always supposed to be with the server.c file, as it uses ./server
 "r" mode in POSIX works for binary data too (images, etc)
 
 Making a server was all about dealing with edgecases, as it should for most part be a simple 'file server'
+
+It would have been 1000x easier to write the server in js, but whats the fun in that?

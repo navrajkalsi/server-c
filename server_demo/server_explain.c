@@ -105,10 +105,17 @@ int parse_request(struct client_info *client) {
   // 1 less because of null pointer
   // Also change the number of returned args in case more args are required in
   // future
-  printf("Received Request: \n\n%s", client->read_buffer);
   if (sscanf(client->read_buffer, "%9s %4095s", client->request_method,
              client->request_path) != 2)
     return -1;
+
+  char client_ip[INET6_ADDRSTRLEN] = {0};
+
+  getnameinfo((struct sockaddr *)&client->client_address, client->address_len,
+              client_ip, sizeof(client_ip), NULL, 0, NI_NUMERICHOST);
+
+  printf("(%s) %s %s\n\n", client_ip, client->request_method,
+         client->request_path);
 
   int is_path_static = check_static_request(client);
 
@@ -175,7 +182,7 @@ int generate_header(char **header, char *status, const char *content_type,
   int final_len = snprintf(NULL, 0, header_template, status, content_type,
                            content_length); // calculating just the final length
   *header = malloc(final_len + 1);
-  if (!header) {
+  if (!*header) {
     errno = ENOMEM;
     return -1;
   }
@@ -231,13 +238,13 @@ int read_file(struct client_info *client, const char *alternate_path) {
 
   // Response buffer with null-terminator
   client->response = (char *)malloc(pos + header_size);
-  client->response[0] = '\0';
-
   if (!(client->response)) {
     fclose(file);
     errno = ENOMEM; // Errno for malloc errors
     return -1;
   }
+
+  client->response[0] = '\0';
 
   // Adding header to the beginning of the response
   strcat(client->response, header);
@@ -281,8 +288,10 @@ int read_directory(struct client_info *client) {
       strcat(dirs, file_name);
 
       // Appending a '/' if the entry is a directory itself
-      if (dir_entry->d_type == DT_DIR)
+      if (dir_entry->d_type == DT_DIR) {
+        dirs_size += 1;
         strcat(dirs, "/");
+      }
       strcat(dirs, "</li>\n");
     }
   } else
@@ -297,7 +306,7 @@ int read_directory(struct client_info *client) {
   if (read_file(client, "./server.html") == -1)
     return -1;
 
-  char *new_response = malloc(client->response_len);
+  char *new_response = malloc(client->response_len + 5);
 
   // Finding ~ in the html file
   int mark_index;
@@ -409,6 +418,8 @@ int main(void) {
     // is done on the new client_fd and server_fd still remains open listening
     // for new conenctions.
     struct client_info new_client;
+    new_client.response = NULL;
+    new_client.response_len = 0;
 
     new_client.client_fd =
         accept(server_fd, (struct sockaddr *)&new_client.client_address,

@@ -126,8 +126,6 @@ const char *get_mime_type(const char *filepath) {
   }
 
   const char *mime = magic_file(magic, filepath);
-  magic_close(magic);
-
   return mime;
 }
 
@@ -176,17 +174,13 @@ int read_file(struct client_info *client, const char *alternate_path) {
   if (alternate_path == NULL) {
     if (generate_header(&header, client->response_status,
                         get_mime_type(client->request_path),
-                        pos + client->response_len, &header_size) == -1) {
-      fclose(file);
+                        pos + client->response_len, &header_size) == -1)
       return -1;
-    }
   } else {
     if (generate_header(&header, client->response_status,
                         get_mime_type(alternate_path),
-                        pos + client->response_len, &header_size) == -1) {
-      fclose(file);
+                        pos + client->response_len, &header_size) == -1)
       return -1;
-    }
   }
 
   client->response = (char *)malloc(pos + header_size);
@@ -227,13 +221,9 @@ int read_directory(struct client_info *client) {
 
       if (strcmp(file_name, "..") == 0 || strcmp(file_name, ".") == 0)
         continue;
-
       dirs_size += strlen(file_name) + strlen("<li>") + strlen("</li>\n");
       strcat(dirs, "<li>");
       strcat(dirs, file_name);
-
-      if (dir_entry->d_type == DT_DIR)
-        strcat(dirs, "/");
       strcat(dirs, "</li>\n");
     }
   } else
@@ -264,6 +254,7 @@ int read_directory(struct client_info *client) {
 
   strcat(new_response, client->response + mark_index + 1);
 
+  free(client->response);
   client->response = new_response;
   closedir(dir_ptr);
   return 0;
