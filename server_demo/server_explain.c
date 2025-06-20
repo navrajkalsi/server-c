@@ -211,33 +211,33 @@ int read_file(struct client_info *client, const char *alternate_path) {
   if (file == NULL)
     return -1;
 
-  fseek(file, 0, SEEK_END); // Seeking to the end of file
-  long pos = ftell(file);   // Storing length of file
-  rewind(file);             // Rewinding to start to copy the contents
+  fseek(file, 0, SEEK_END);    // Seeking to the end of file
+  long file_len = ftell(file); // Storing length of file
+  rewind(file);                // Rewinding to start to copy the contents
 
   char *header;
   unsigned int header_size = 0;
-  // Final content length will be 'pos' when just serving a file
-  // Final content length will be 'pos + *size' showing a directory, *size at
-  // this point is just the size of 'dirs'
+  // Final content length will be 'file_len' when just serving a file
+  // Final content length will be 'file_len + *size' showing a directory, *size
+  // at this point is just the size of 'dirs'
   if (alternate_path == NULL) {
     if (generate_header(&header, client->response_status,
                         get_mime_type(client->request_path),
-                        pos + client->response_len, &header_size) == -1) {
+                        file_len + client->response_len, &header_size) == -1) {
       fclose(file);
       return -1;
     }
   } else {
     if (generate_header(&header, client->response_status,
                         get_mime_type(alternate_path),
-                        pos + client->response_len, &header_size) == -1) {
+                        file_len + client->response_len, &header_size) == -1) {
       fclose(file);
       return -1;
     }
   }
 
   // Response buffer with null-terminator
-  client->response = (char *)malloc(pos + header_size);
+  client->response = (char *)malloc(file_len + header_size);
   if (!(client->response)) {
     fclose(file);
     errno = ENOMEM; // Errno for malloc errors
@@ -246,16 +246,23 @@ int read_file(struct client_info *client, const char *alternate_path) {
 
   client->response[0] = '\0';
 
+  // In case of reading a directory, response_len already has the 'dirs_size'
+  // Response started building from here
   // Adding header to the beginning of the response
   strcat(client->response, header);
 
   // Number of bytes read, used as size of response
   // Reading to the end of header index
   client->response_len +=
-      fread(&((client->response)[header_size]), sizeof(char), pos, file);
+      fread(&((client->response)[header_size]), sizeof(char), file_len, file);
   client->response_len += header_size;
+
   // Lesson learned
-  (client->response)[client->response_len] = '\0';
+  // And not using client.response_len as the null terminator position, as it
+  // may also contain the dirs_size from read_directory() but not the actual
+  // directory data, therefore we get garbage data at the end if I try to print
+  // the resposne here. Plus it leads to 'double free' error.
+  (client->response)[file_len + header_size] = '\0';
 
   fclose(file);
   free(header);
@@ -306,7 +313,7 @@ int read_directory(struct client_info *client) {
   if (read_file(client, "./server.html") == -1)
     return -1;
 
-  char *new_response = malloc(client->response_len + 5);
+  char *new_response = malloc(client->response_len);
 
   // Finding ~ in the html file
   int mark_index;
@@ -324,7 +331,9 @@ int read_directory(struct client_info *client) {
   strncpy(new_response, client->response, mark_index);
   // Not null terminated, terminating to use strcat
   new_response[mark_index] = '\0';
+
   strcat(new_response, dirs);
+
   // Appending the remaining file
   strcat(new_response, client->response + mark_index + 1);
 
