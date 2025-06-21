@@ -154,19 +154,26 @@ int parse_request(struct client_info *client) {
 }
 
 // Returns the mime type of a file
-const char *get_mime_type(const char *filepath) {
+char *get_mime_type(const char *filepath) {
   magic_t magic = magic_open(MAGIC_MIME_TYPE);
-  if (magic == NULL)
+  if (!magic)
     return NULL;
+
   if (magic_load(magic, NULL) != 0) {
     magic_close(magic);
     return NULL;
   }
 
   const char *mime = magic_file(magic, filepath);
+  if (!mime) {
+    magic_close(magic);
+    return NULL;
+  }
+
+  char *mime_return = strdup(mime);
   magic_close(magic);
 
-  return mime;
+  return mime_return;
 }
 
 // Generates an HTTP response header
@@ -175,9 +182,14 @@ int generate_header(char **header, char *status, const char *content_type,
   if (status[0] == '\0')
     snprintf(status, STATUS_SIZE, "200 OK");
 
-  const char *header_template = "HTTP/1.1 %s\r\n Content-Type: %s\r\n "
-                                "Content-Length: %u\r\n Connection: "
-                                "close\r\n\r\n";
+  const char *header_template =
+      "HTTP/1.1 %s\r\n"
+      "Content-Type: %s\r\n"
+      "Content-Length: %u\r\n"
+      "Connection: close\r\n"
+      "Access-Control-Allow-Origin: *\r\n"
+      "Access-Control-Expose-Headers: Content-Type\r\n"
+      "\r\n";
 
   int final_len = snprintf(NULL, 0, header_template, status, content_type,
                            content_length); // calculating just the final length
@@ -217,27 +229,36 @@ int read_file(struct client_info *client, const char *alternate_path) {
 
   char *header;
   unsigned int header_size = 0;
+  char *mime = NULL;
   // Final content length will be 'file_len' when just serving a file
   // Final content length will be 'file_len + *size' showing a directory, *size
   // at this point is just the size of 'dirs'
   if (alternate_path == NULL) {
-    if (generate_header(&header, client->response_status,
-                        get_mime_type(client->request_path),
+    mime = get_mime_type(client->request_path);
+    if (!mime)
+      return -1;
+    if (generate_header(&header, client->response_status, mime,
                         file_len + client->response_len, &header_size) == -1) {
       fclose(file);
+      free(mime);
       return -1;
     }
   } else {
-    if (generate_header(&header, client->response_status,
-                        get_mime_type(alternate_path),
+    mime = get_mime_type(alternate_path);
+    if (!mime)
+      return -1;
+    if (generate_header(&header, client->response_status, mime,
                         file_len + client->response_len, &header_size) == -1) {
       fclose(file);
+      free(mime);
       return -1;
     }
   }
+  free(mime);
 
   // Response buffer with null-terminator
-  client->response = (char *)malloc(file_len + header_size);
+  client->response = (char *)malloc(file_len + header_size + 1);
+
   if (!(client->response)) {
     fclose(file);
     errno = ENOMEM; // Errno for malloc errors
@@ -305,7 +326,8 @@ int read_directory(struct client_info *client) {
     return -1;
 
   // New size of response
-  client->response_len += dirs_size;
+  // -1 because we will be removing ~ from the html file
+  client->response_len += dirs_size - 1;
 
   // Filling the response buffer with the server.html template
   // File only needs to be read here, since it has to be sent the new size,
@@ -400,6 +422,8 @@ int main(void) {
   if (listen(server_fd, BACKLOG) == -1)
     err_n_die("Listening");
 
+  printf("Server Listening at Port: %d\n", PORT);
+
   // Reaping child processes
   struct sigaction sa;
   sa.sa_handler = sigchild_handler;
@@ -419,8 +443,7 @@ int main(void) {
     err_n_die("Shutting Down");
 
   // Loop to accept incoming connections)
-  while (running) {
-    printf("Server Running at Port: %d\n", PORT);
+  while (1) {
     // Accepting connections, requires the server_fd and an empty 'struct
     // sockaddr' and its length. On connection, fills it with the address info
     // of the client After accepting, all communication with the said client
@@ -437,7 +460,11 @@ int main(void) {
     if (new_client.client_fd == -1)
       err_n_die("Accepting");
 
-    pid_t pid = fork();
+    pid_t pid;
+
+    if (new_client.client_fd)
+      pid = fork();
+
     if (pid == 0) { // Inside Child process
 
       if (close(server_fd) == -1) // Child should not be listening on server
@@ -481,8 +508,7 @@ int main(void) {
       if (close(new_client.client_fd) ==
           -1) // Parent does not need client's fd anymore
         err_n_die("Closing Client File Descriptor");
-    } else
-      err_n_die("Forking");
+    }
   }
 
   printf("Shutting Down\n");

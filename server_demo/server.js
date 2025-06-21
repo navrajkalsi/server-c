@@ -1,7 +1,8 @@
 const files_list = document.querySelector("ul"), // Gets the first ul element
   current_url = window.location.href,
   current_path = new URL(current_url).pathname,
-  file_preview = document.getElementById("file-preview").firstElementChild;
+  file_preview = document.getElementById("file-preview").firstElementChild,
+  response_image = document.getElementById("response-image");
 
 // This is the 'li' element which would be selected
 var selected_file = null;
@@ -33,7 +34,25 @@ function show_file() {
   else
     fetch(current_path + "/" + selected_file.textContent)
       .then(async response => {
-        file_preview.textContent = await response.text();
+        const contentType = response.headers.get("Content-Type");
+
+        // If image then fill the blob
+        if (contentType && contentType.startsWith("image/"))
+          return response.blob();
+        else {
+          // Clearing image
+          response_image.src = "";
+          file_preview.textContent = await response.text();
+          return null;
+          // if not iamge then add text to pre and exit
+        }
+      })
+      .then(imageBlob => {
+        // imageBlob will not be null, if we returned response.blob()
+        if (imageBlob) {
+          file_preview.textContent = "";
+          response_image.src = URL.createObjectURL(imageBlob);
+        }
       });
 };
 
@@ -62,15 +81,17 @@ function handle_motion() {
       select_file(files_list.firstElementChild);
     if (event.key == "Enter") {
       var file_name = selected_file.textContent;
-      if (file_name.endsWith("/"))
-        visit_url(file_name.substring(0, file_name.length - 1));
-      else
-        visit_url(file_name);
+      visit_url(file_name);
     }
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Just so further requests do not contain double /
+  // Won't cause any errors if it does but looks weird
+  if (current_path.endsWith("/"))
+    window.location.href = current_url.slice(0, -1);
+
   document.getElementById("current_url").textContent = current_path;
 
   files_list.id = "main-list"; // Adding id to the list for styles

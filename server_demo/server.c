@@ -83,10 +83,17 @@ int check_static_request(struct client_info *client) {
 
 int parse_request(struct client_info *client) {
 
-  printf("Received Request: \n\n%s", client->read_buffer);
   if (sscanf(client->read_buffer, "%9s %4095s", client->request_method,
              client->request_path) != 2)
     return -1;
+
+  char client_ip[INET6_ADDRSTRLEN] = {0};
+
+  getnameinfo((struct sockaddr *)&client->client_address, client->address_len,
+              client_ip, sizeof(client_ip), NULL, 0, NI_NUMERICHOST);
+
+  printf("(%s) %s %s\n\n", client_ip, client->request_method,
+         client->request_path);
 
   int is_path_static = check_static_request(client);
 
@@ -143,7 +150,7 @@ int generate_header(char **header, char *status, const char *content_type,
   int final_len =
       snprintf(NULL, 0, header_template, status, content_type, content_length);
   *header = malloc(final_len + 1);
-  if (!header) {
+  if (!*header) {
     errno = ENOMEM;
     return -1;
   }
@@ -167,7 +174,7 @@ int read_file(struct client_info *client, const char *alternate_path) {
     return -1;
 
   fseek(file, 0, SEEK_END);
-  long pos = ftell(file);
+  long file_len = ftell(file);
   rewind(file);
 
   char *header;
@@ -176,35 +183,35 @@ int read_file(struct client_info *client, const char *alternate_path) {
   if (alternate_path == NULL) {
     if (generate_header(&header, client->response_status,
                         get_mime_type(client->request_path),
-                        pos + client->response_len, &header_size) == -1) {
+                        file_len + client->response_len, &header_size) == -1) {
       fclose(file);
       return -1;
     }
   } else {
     if (generate_header(&header, client->response_status,
                         get_mime_type(alternate_path),
-                        pos + client->response_len, &header_size) == -1) {
+                        file_len + client->response_len, &header_size) == -1) {
       fclose(file);
       return -1;
     }
   }
 
-  client->response = (char *)malloc(pos + header_size);
-  client->response[0] = '\0';
-
+  client->response = (char *)malloc(file_len + header_size);
   if (!(client->response)) {
     fclose(file);
     errno = ENOMEM;
     return -1;
   }
 
+  client->response[0] = '\0';
+
   strcat(client->response, header);
 
   client->response_len +=
-      fread(&((client->response)[header_size]), sizeof(char), pos, file);
+      fread(&((client->response)[header_size]), sizeof(char), file_len, file);
   client->response_len += header_size;
 
-  (client->response)[client->response_len] = '\0';
+  (client->response)[file_len + header_size] = '\0';
 
   fclose(file);
   free(header);
@@ -232,14 +239,16 @@ int read_directory(struct client_info *client) {
       strcat(dirs, "<li>");
       strcat(dirs, file_name);
 
-      if (dir_entry->d_type == DT_DIR)
+      if (dir_entry->d_type == DT_DIR) {
+        dirs_size += 1;
         strcat(dirs, "/");
+      }
       strcat(dirs, "</li>\n");
     }
   } else
     return -1;
 
-  client->response_len += dirs_size;
+  client->response_len += dirs_size - 1;
 
   if (read_file(client, "./server.html") == -1)
     return -1;
@@ -260,10 +269,12 @@ int read_directory(struct client_info *client) {
   strncpy(new_response, client->response, mark_index);
 
   new_response[mark_index] = '\0';
+
   strcat(new_response, dirs);
 
   strcat(new_response, client->response + mark_index + 1);
 
+  free(client->response);
   client->response = new_response;
   closedir(dir_ptr);
   return 0;
@@ -304,6 +315,8 @@ int main(void) {
   if (listen(server_fd, BACKLOG) == -1)
     err_n_die("Listening");
 
+  printf("Server Listening at Port: %d\n", PORT);
+
   struct sigaction sa;
   sa.sa_handler = sigchild_handler;
   sigemptyset(&sa.sa_mask);
@@ -321,10 +334,11 @@ int main(void) {
       sigaction(SIGTERM, &sa_shutdown, NULL) == -1)
     err_n_die("Shutting Down");
 
-  while (running) {
-    printf("Server Running at Port: %d\n", PORT);
+  while (1) {
 
     struct client_info new_client;
+    new_client.response = NULL;
+    new_client.response_len = 0;
 
     new_client.client_fd =
         accept(server_fd, (struct sockaddr *)&new_client.client_address,
@@ -333,7 +347,11 @@ int main(void) {
     if (new_client.client_fd == -1)
       err_n_die("Accepting");
 
-    pid_t pid = fork();
+    pid_t pid;
+
+    if (new_client.client_fd)
+      pid = fork();
+
     if (pid == 0) {
 
       if (close(server_fd) == -1)
@@ -361,6 +379,9 @@ int main(void) {
       if (generate_response(&new_client) == -1)
         err_n_die("Generating Response");
 
+      printf("Response Size: %d\n", new_client.response_len);
+      printf("Response Len: %ld\n", strlen(new_client.response));
+
       if (write(new_client.client_fd, new_client.response,
                 new_client.response_len) == -1)
         err_n_die("Writing Response");
@@ -373,8 +394,7 @@ int main(void) {
     } else if (pid > 0) {
       if (close(new_client.client_fd) == -1)
         err_n_die("Closing Client File Descriptor");
-    } else
-      err_n_die("Forking");
+    }
   }
 
   printf("Shutting Down\n");
