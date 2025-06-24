@@ -55,6 +55,29 @@
       #file-preview {
         background-color: rgba(0, 0, 0, 0.25);
         min-height: 100%;
+        display: flex;
+        flex-direction: column;
+
+        #img-preview {
+          object-fit: contain;
+          width: 100%;
+          height: auto;
+          margin: auto;
+        }
+
+        #text-preview {
+          font-size: 100%;
+        }
+
+        #empty-preview {
+          background-color: white;
+          color: black;
+        }
+
+        #unsupported-preview {
+          background-color: white;
+          color: black;
+        }
       }
     }
 
@@ -96,10 +119,7 @@
   </section>
 
   <section class="right">
-    <div class="padding" id="file-preview">
-      <pre></pre>
-      <img id="response-image" />
-    </div>
+    <div class="padding" id="file-preview"></div>
   </section>
 
   <script src="/server.js"></script>

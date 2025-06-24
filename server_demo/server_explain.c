@@ -86,7 +86,8 @@ int set_root_dir(void) {
   return 0;
 }
 
-// Handles requesting of any static files like favicon
+// Handles requesting of any static files (currently includes:
+// /favicon.ico, /server.js
 // Returns 1 if the path has to be dealt with statically and not to be used with
 // realpath() in parse_request()
 int check_static_request(struct client_info *client) {
@@ -94,6 +95,8 @@ int check_static_request(struct client_info *client) {
     return -1;
 
   if (strcmp(client->request_path, "/favicon.ico") == 0)
+    return 1;
+  if (strcmp(client->request_path, "/server.js") == 0)
     return 1;
   return 0;
 }
@@ -154,6 +157,10 @@ int parse_request(struct client_info *client) {
 }
 
 // Returns the mime type of a file
+// MIME type for '/server.js' is set to 'application/javascript' to prevent
+// browser warnings, look in the read_file()
+// Rest of the js files will be served with type of
+// 'text/plain' for easy preview
 char *get_mime_type(const char *filepath) {
   magic_t magic = magic_open(MAGIC_MIME_TYPE);
   if (!magic)
@@ -234,7 +241,14 @@ int read_file(struct client_info *client, const char *alternate_path) {
   // Final content length will be 'file_len + *size' showing a directory, *size
   // at this point is just the size of 'dirs'
   if (alternate_path == NULL) {
-    mime = get_mime_type(client->request_path);
+    //
+    // Alter code here to add more custom MIME types
+    //
+    if (strcmp(client->request_path, "server.js") == 0)
+      mime = strdup("application/javascript");
+    else
+      mime = get_mime_type(client->request_path);
+
     if (!mime)
       return -1;
     if (generate_header(&header, client->response_status, mime,
