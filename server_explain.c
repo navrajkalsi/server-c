@@ -101,6 +101,38 @@ int check_static_request(struct client_info *client) {
   return 0;
 }
 
+// Makes url usable in c, as the request url may be encoded
+// Converts '/' to './'
+// Converts '%20' to ' '
+// Add anymore url alternations here
+int simplify_url(struct client_info *client) {
+  // An array of search terms could be implemented if there more string that
+  // need to be replaced
+
+  if (strcmp(client->request_path, "/") == 0)
+    strcpy(client->request_path, "./");
+
+  // Replacing terms that need to be replaced
+  while (1) {
+    char *charPtr = strstr(client->request_path, "%20");
+    if (charPtr == NULL)
+      break;
+    else {
+      *charPtr = ' '; // Although there will still be data that was written
+                      // after null-terminator, but I own the memory
+      charPtr += 1;
+    }
+    // Moving chars over
+    while (1) {
+      if (charPtr[strlen("%20") - 3] == '\0')
+        break;
+      *charPtr = charPtr[sizeof("%20") - 2];
+      charPtr += 1;
+    }
+  }
+  return 0;
+}
+
 // Parses a request, extracting the 'request_method' & 'request_path'.
 // Request path is converted to absolute path and checked for traversal
 int parse_request(struct client_info *client) {
@@ -110,6 +142,11 @@ int parse_request(struct client_info *client) {
   // future
   if (sscanf(client->read_buffer, "%9s %4095s", client->request_method,
              client->request_path) != 2)
+    return -1;
+
+  // Taking out any '%20's
+  // When user requests for '/', the server should serve pwd
+  if (simplify_url(client) == -1)
     return -1;
 
   char client_ip[INET6_ADDRSTRLEN] = {0};
@@ -122,13 +159,20 @@ int parse_request(struct client_info *client) {
 
   int is_path_static = check_static_request(client);
 
+  // Removing beginning '/'s to be able to use realpath()
+  while (1) {
+    if (strncmp(client->request_path, "/", 1) == 0)
+      strncpy(client->request_path, &(client->request_path)[1], PATH_SIZE);
+    else
+      break;
+  }
+
   if (is_path_static == 0) { // Absolute path is to be used
     // Thanks Prof Kevin Forest!
-    // Skipping the beginning '/' by shifting the pointer to the next char
     // Getting actual absolute path of the target
-    if (!realpath(&(client->request_path)[1], client->request_path)) {
-      // If the errno is set to 2, that means the requested directory/file does
-      // not exist Then the server serves the '404.html file instead'
+    if (!realpath(client->request_path, client->request_path)) {
+      // If the errno is set to 2, that means the requested directory/file
+      // does not exist Then the server serves the '404.html file instead'
       if (errno == 2) {
         snprintf(client->response_status, STATUS_SIZE,
                  "404 Not Found"); // Setting status code
@@ -149,9 +193,6 @@ int parse_request(struct client_info *client) {
     }
   } else if (is_path_static == -1)
     return -1;
-  else // File is static and needs to be served from the server path. Removing
-       // the starting '/'
-    strncpy(client->request_path, &(client->request_path)[1], PATH_SIZE);
 
   return 0;
 }
@@ -238,8 +279,8 @@ int read_file(struct client_info *client, const char *alternate_path) {
   unsigned int header_size = 0;
   char *mime = NULL;
   // Final content length will be 'file_len' when just serving a file
-  // Final content length will be 'file_len + *size' showing a directory, *size
-  // at this point is just the size of 'dirs'
+  // Final content length will be 'file_len + *size' showing a directory,
+  // *size at this point is just the size of 'dirs'
   if (alternate_path == NULL) {
     //
     // Alter code here to add more custom MIME types
@@ -295,8 +336,8 @@ int read_file(struct client_info *client, const char *alternate_path) {
   // Lesson learned
   // And not using client.response_len as the null terminator position, as it
   // may also contain the dirs_size from read_directory() but not the actual
-  // directory data, therefore we get garbage data at the end if I try to print
-  // the resposne here. Plus it leads to 'double free' error.
+  // directory data, therefore we get garbage data at the end if I try to
+  // print the resposne here. Plus it leads to 'double free' error.
   (client->response)[file_len + header_size] = '\0';
 
   fclose(file);
