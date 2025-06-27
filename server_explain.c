@@ -17,6 +17,9 @@
 
 // Need to compile with -lmagic flag to use magic.h for get_mime_type()
 
+// Dir to house the static files for the server
+#define STATIC_DIR "/usr/local/share/server-c/"
+
 // Macros
 #define PORT 1419
 #define BACKLOG 10
@@ -97,6 +100,10 @@ int check_static_request(struct client_info *client) {
   if (strcmp(client->request_path, "/favicon.ico") == 0)
     return 1;
   if (strcmp(client->request_path, "/server.js") == 0)
+    return 1;
+  if (strcmp(client->request_path, "/server.html") == 0)
+    return 1;
+  if (strcmp(client->request_path, "/404.html") == 0)
     return 1;
   return 0;
 }
@@ -191,7 +198,14 @@ int parse_request(struct client_info *client) {
       errno = EPERM;
       return -1;
     }
-  } else if (is_path_static == -1)
+  } else if (is_path_static == 1) {
+    // If the request is for a static file from STATIC_DIR it will be made after
+    // prepending the STATIC_DIR
+    char static_dir[PATH_SIZE] = STATIC_DIR;
+    strncat(static_dir, client->request_path, PATH_SIZE - (strlen(static_dir)));
+    printf("Static Dir: %s\n", static_dir);
+    strncpy(client->request_path, static_dir, PATH_SIZE);
+  } else
     return -1;
 
   return 0;
@@ -283,9 +297,12 @@ int read_file(struct client_info *client, const char *alternate_path) {
   // *size at this point is just the size of 'dirs'
   if (alternate_path == NULL) {
     //
-    // Alter code here to add more custom MIME types
+    // Alter code here to add more custom MIME types for static files
     //
-    if (strcmp(client->request_path, "server.js") == 0)
+    char static_dir[PATH_SIZE] = STATIC_DIR;
+    if (strcmp(client->request_path, strncat(static_dir, "server.js",
+                                             PATH_SIZE - strlen(static_dir))) ==
+        0)
       mime = strdup("application/javascript");
     else
       mime = get_mime_type(client->request_path);
@@ -387,7 +404,9 @@ int read_directory(struct client_info *client) {
   // Filling the response buffer with the server.html template
   // File only needs to be read here, since it has to be sent the new size,
   // including 'dirs'
-  if (read_file(client, "./server.html") == -1)
+  char static_dir[PATH_SIZE] = STATIC_DIR;
+  if (read_file(client, strncat(static_dir, "server.html",
+                                PATH_SIZE - strlen(static_dir))) == -1)
     return -1;
 
   char *new_response = malloc(client->response_len);
