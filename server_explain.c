@@ -1,7 +1,9 @@
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
+#include <bits/getopt_core.h>
 #include <dirent.h>
 #include <errno.h>
+#include <getopt.h>
 #include <magic.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -21,7 +23,6 @@
 #define STATIC_DIR "/usr/local/share/server-c/"
 
 // Macros
-#define PORT 1419
 #define BACKLOG 10
 // Request related
 #define READ_BUFFER_SIZE 4096
@@ -55,13 +56,14 @@ struct client_info {
 int server_fd;
 struct sockaddr_in server_address;
 
-// Root dir of server
-char root_dir[PATH_SIZE];
+// Root dir of server and port
+int PORT = 1419;
+char root_dir[PATH_SIZE] = "\0";
 
 void err_n_die(const char operation[]) {
   printf("%s failed!\n", operation);
   printf("Error Code: %d\n", errno);
-  printf("Error Message: %s\n", strerror(errno));
+  printf("Error Message: %s\n\n", strerror(errno));
   exit(EXIT_FAILURE);
 }
 
@@ -80,6 +82,30 @@ void sigchild_handler(int s) {
     ;
 
   errno = saved_errno;
+}
+
+// Parses args from the command line, if any
+void parse_args(int argc, char *argv[]) {
+  int arg; // cannot be char, although the switch will compare it to char,
+           // because getopt() can return -1 as well, therefore we will be
+           // comparing the ASCII values of char literals
+
+  // ':' is required to tell if the flag requires an argument after the flag in
+  // cmd line
+  while ((arg = getopt(argc, argv, "p:r:")) != -1) {
+    switch (arg) {
+    case 'p':
+      PORT = atoi(optarg); // 'optarg' is a global variable set by getopt()
+                           // Have to convert it from ASCII string to integer
+                           // with atoi()
+      break;
+    case 'r':
+      if (!realpath(optarg, root_dir))
+        err_n_die("Setting Root Directory");
+      break;
+    }
+  }
+  return;
 }
 
 // Sets global variable 'root_dir' to the working directory
@@ -167,17 +193,25 @@ int parse_request(struct client_info *client) {
   int is_path_static = check_static_request(client);
 
   // Removing beginning '/'s to be able to use realpath()
-  while (1) {
-    if (strncmp(client->request_path, "/", 1) == 0)
-      strncpy(client->request_path, &(client->request_path)[1], PATH_SIZE);
-    else
-      break;
-  }
+  while (client->request_path[0] == '/' && client->request_path[1] != '\0')
+    memmove(client->request_path, client->request_path + 1,
+            strlen(client->request_path));
 
   if (is_path_static == 0) { // Absolute path is to be used
     // Thanks Prof Kevin Forest!
     // Getting actual absolute path of the target
-    if (!realpath(client->request_path, client->request_path)) {
+
+    // Have to append the root_dir to request_path, because if root_dir is set
+    // with args the realpath() still considers the pwd as the root dir
+    char fullpath[PATH_SIZE]; // This path may be illegal to use, but that will
+                              // be sorted later
+    strncpy(fullpath, root_dir, PATH_SIZE); // Starting the path with root dir
+    strcat(fullpath, "/");
+    strcat(fullpath, client->request_path); // Now the path will be root(set by
+                                            // user)/requested_file
+    // This will work even if the user does not use -r flag, as set_root_dir()
+    // will set the root_dir to pwd
+    if (!realpath(fullpath, client->request_path)) {
       // If the errno is set to 2, that means the requested directory/file
       // does not exist Then the server serves the '404.html file instead'
       if (errno == 2) {
@@ -203,7 +237,6 @@ int parse_request(struct client_info *client) {
     // prepending the STATIC_DIR
     char static_dir[PATH_SIZE] = STATIC_DIR;
     strncat(static_dir, client->request_path, PATH_SIZE - (strlen(static_dir)));
-    printf("Static Dir: %s\n", static_dir);
     strncpy(client->request_path, static_dir, PATH_SIZE);
   } else
     return -1;
@@ -464,7 +497,10 @@ int generate_response(struct client_info *client) {
   return 0;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+
+  parse_args(argc, argv);
+
   // This returns a socket file descriptor as an int, which is like a two way
   // door. This is through which all communication takes place. It takes in
   // three params:
@@ -556,9 +592,11 @@ int main(void) {
       // Clearing any previous status codes
       memset(new_client.response_status, 0, STATUS_SIZE);
       (new_client.response_status)[0] = '\0';
-      memset(root_dir, 0, PATH_SIZE);
-      if (set_root_dir() == -1)
-        err_n_die("Setting Root Directory");
+
+      if (strlen(root_dir) == 0) // If -r flag was not used, then the root_dir
+                                 // is not set yet and will have len of 0
+        if (set_root_dir() == -1)
+          err_n_die("Setting Root Directory");
 
       if (parse_request(&new_client) == -1)
         err_n_die("Parsing Request");
