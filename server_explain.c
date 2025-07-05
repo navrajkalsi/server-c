@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
 #include <bits/getopt_core.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
@@ -8,6 +9,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +34,7 @@
 #define STATUS_SIZE 32
 
 // Variable to determine running status of server
+// Used for shutting down server with SIGTERM/SIGINT
 volatile sig_atomic_t running = 1;
 
 // Client struct, store information on a client: file descriptor (returned by
@@ -58,53 +61,133 @@ struct sockaddr_in server_address;
 
 // Root dir of server and port
 int PORT = 1419;
-char root_dir[PATH_SIZE] = "\0";
 
-void err_n_die(const char operation[]) {
+char root_dir[PATH_SIZE] = "\0";
+// Pass -d flag to use debug mode, prints every activity to the terminal
+int DEBUG = 0;
+// Pass -a to accept incoming connections from all IPs
+// By default, accepts request only from localhost
+// Cannot set to INADDR_LOOPBACK here since its value is not determined until
+// runtime
+in_addr_t client_addr_t = INADDR_LOOPBACK;
+
+void err_n_die(const char *operation) {
   printf("%s failed!\n", operation);
   printf("Error Code: %d\n", errno);
   printf("Error Message: %s\n\n", strerror(errno));
   exit(EXIT_FAILURE);
 }
 
+// Exits the program by turning the loop condition to false,
+// and then in main() memory is cleaned
 void shutdown_handler(int s) {
   (void)s;
   running = 0;
+  return;
 }
 
+// Reaps all child processes and does not let them become zombie processes as
+// they occupy process table slots
 void sigchild_handler(int s) {
   (void)s;
 
   // waitpid might change the errno
   int saved_errno = errno;
 
+  // waitpid() returns the PID of the exited child
+  // Takes in:
+  // PID of child (-1 targets every child)
+  // output param to set the exit status of the child to
+  // WNOHANG means non-blocking
   while (waitpid(-1, NULL, WNOHANG) > 0)
     ;
 
   errno = saved_errno;
 }
 
+// Prints passed message to the console, if debug flag/option is on
+void print_debug(const char *msg) {
+  if (DEBUG == 1)
+    puts(msg);
+  return;
+}
+
 // Parses args from the command line, if any
+// Errors and exits if the root_dir passed does not exist
 void parse_args(int argc, char *argv[]) {
+  // Looking for -h flag before scanning for other flags, to make sure I do not
+  // start the server if -h is used
+  for (int i = 1; i < argc; i++)
+    if (strcmp(argv[i], "-h") == 0) {
+      printf(
+          "Usage: %s [OPTIONS] [ARGS...]\n"
+          "Options:\n"
+          "-a             Accept Incoming Connections from all IPs, defaults "
+          "to Localhost only.\n"
+          "-d             Debug Mode, prints every major function call.\n"
+          "-h             Print this help message.\n"
+          "-p <port>      Port to listen on.\n"
+          "-r <directory> Directory to serve.\n",
+          argv[0]);
+      exit(EXIT_SUCCESS);
+    };
+
   int arg; // cannot be char, although the switch will compare it to char,
            // because getopt() can return -1 as well, therefore we will be
            // comparing the ASCII values of char literals
 
   // ':' is required to tell if the flag requires an argument after the flag in
   // cmd line
-  while ((arg = getopt(argc, argv, "p:r:")) != -1) {
+  int args_parsed = 0; // For debugging
+  while ((arg = getopt(argc, argv, "adhp:r:")) != -1) {
     switch (arg) {
+    case 'd':
+      DEBUG = 1;
+      args_parsed++;
+      puts("Debug Mode On.\n");
+      break;
+    case 'a':
+      // client_addr_t = htonl(INADDR_ANY);
+      client_addr_t = INADDR_ANY;
+      args_parsed++;
+      break;
     case 'p':
       PORT = atoi(optarg); // 'optarg' is a global variable set by getopt()
-                           // Have to convert it from ASCII string to integer
-                           // with atoi()
+      // Have to convert it from ASCII string to integer
+      // with atoi()
+      args_parsed++;
+      if (DEBUG == 1)
+        printf("Port changed to: %d\n", PORT);
       break;
     case 'r':
       if (!realpath(optarg, root_dir))
         err_n_die("Setting Root Directory");
+      args_parsed++;
+      if (DEBUG == 1)
+        printf("Root Directory set to: %s\n", root_dir);
       break;
+    case '?': // If an unknown flag or no argument is passed for an option
+              // 'optopt' is set to the flag
+      if (optopt == 'p')
+        puts("Option '-p' requires passing a valid port number\nUse '-h' for "
+             "usage.\n");
+      else if (optopt == 'r')
+        puts(
+            "Option '-r' requries passing a valid directory path\nUse '-h' for "
+            "usage.\n");
+      else if (isprint(optopt))
+        printf("Unknown option: '-%c'.\n", optopt);
+      else
+        puts("Unknown option character used!\n");
+      exit(EXIT_FAILURE);
+    default:
+      puts("Unknown error occurred while parsing arguments\n");
+      exit(EXIT_FAILURE);
     }
   }
+
+  if (DEBUG == 1)
+    printf("Parsed %d Argument(s).\n\n", args_parsed);
   return;
 }
 
@@ -145,23 +228,17 @@ int simplify_url(struct client_info *client) {
   if (strcmp(client->request_path, "/") == 0)
     strcpy(client->request_path, "./");
 
+  char *charPtr;
   // Replacing terms that need to be replaced
-  while (1) {
-    char *charPtr = strstr(client->request_path, "%20");
-    if (charPtr == NULL)
-      break;
-    else {
-      *charPtr = ' '; // Although there will still be data that was written
-                      // after null-terminator, but I own the memory
-      charPtr += 1;
-    }
+  while ((charPtr = strstr(client->request_path, "%20"))) {
+    // To start, charPtr points to '%'
+    *charPtr = ' '; // Although there will still be data that was written
+                    // after null-terminator, but I own the memory
+    charPtr++;      // Pointing to '2'
+
     // Moving chars over
-    while (1) {
-      if (charPtr[strlen("%20") - 3] == '\0')
-        break;
-      *charPtr = charPtr[sizeof("%20") - 2];
-      charPtr += 1;
-    }
+    while ((*charPtr = *(charPtr + 2)))
+      charPtr++;
   }
   return 0;
 }
@@ -177,10 +254,16 @@ int parse_request(struct client_info *client) {
              client->request_path) != 2)
     return -1;
 
+  print_debug("Parsing Request.\n");
+
+  if (DEBUG == 1)
+    printf("Received Request Path: %s\n", client->request_path);
   // Taking out any '%20's
   // When user requests for '/', the server should serve pwd
   if (simplify_url(client) == -1)
     return -1;
+  if (DEBUG == 1)
+    printf("Simplified Request Path: %s\n", client->request_path);
 
   char client_ip[INET6_ADDRSTRLEN] = {0};
 
@@ -498,8 +581,8 @@ int generate_response(struct client_info *client) {
 }
 
 int main(int argc, char *argv[]) {
-
-  parse_args(argc, argv);
+  parse_args(argc,
+             argv); // PORT, root_dir & DEBUG will be set, if passed by user
 
   // This returns a socket file descriptor as an int, which is like a two way
   // door. This is through which all communication takes place. It takes in
@@ -508,7 +591,9 @@ int main(int argc, char *argv[]) {
   // 2. Socket type (stream or datagram, mainly)
   // 3. Protocol family (0: OS chooses the appropriate one, TCP for stream
   // sockets & UDP for datagram sockets)
-  server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    err_n_die("Creating Socket");
+  print_debug("Socket Created.\n");
 
   // Now the socket has to be binded to an IP & a port, the address should be
   // of any one of the interfaces on this machine. After binding all request
@@ -522,11 +607,19 @@ int main(int argc, char *argv[]) {
   // network byte order(big endian), with htons()
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(PORT);
-  server_address.sin_addr.s_addr = INADDR_ANY;
+  server_address.sin_addr.s_addr = htonl(client_addr_t);
+
+  if (server_address.sin_addr.s_addr == htonl(INADDR_ANY))
+    puts("Server Accepting Incoming Connections from all IPs.\n");
+  else if (server_address.sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+    puts("Server Accepting Incoming Connections from Localhost Only.\n");
+  else
+    err_n_die("Binding");
 
   if (bind(server_fd, (struct sockaddr *)&server_address,
            sizeof(server_address)) == -1)
     err_n_die("Binding");
+  print_debug("Socket Binded to the port.\n");
 
   // Now we can start listening with the socket on the ip and port assigned
   if (listen(server_fd, BACKLOG) == -1)
@@ -534,26 +627,35 @@ int main(int argc, char *argv[]) {
 
   printf("Server Listening at Port: %d\n", PORT);
 
-  // Reaping child processes
-  struct sigaction sa;
-  sa.sa_handler = sigchild_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
+  // Child processes will be creating next.
+  // When a child exits, it is a zomibe process until its exit status is read by
+  // the parent (reaping) Reaping child processes
+  struct sigaction sa_reap;
+  // The assigned function will automatically be called when any signal is
+  // received from a child
+  sa_reap.sa_handler = sigchild_handler;
+  // Clears any signals that are set by default to be blocked
+  sigemptyset(&sa_reap.sa_mask);
+  sa_reap.sa_flags = SA_RESTART;
 
-  if (sigaction(SIGCHLD, &sa, NULL) == -1)
+  if (sigaction(SIGCHLD, &sa_reap, NULL) == -1)
     err_n_die("Reaping Child Processes");
 
+  // Handling shutdown
   struct sigaction sa_shutdown;
   sa_shutdown.sa_handler = shutdown_handler;
   sigemptyset(&sa_shutdown.sa_mask);
-  sa_shutdown.sa_flags = 0;
+  sa_shutdown.sa_flags = 0; // No flags required for shutting down
 
+  // SIGINT (signal interput) is sent when Ctrl+C is pressed
+  // SIGTERM (signal terminate) is sent when the process is killed from like
+  // terminal with kill command
   if (sigaction(SIGINT, &sa_shutdown, NULL) == -1 ||
       sigaction(SIGTERM, &sa_shutdown, NULL) == -1)
     err_n_die("Shutting Down");
 
-  // Loop to accept incoming connections)
-  while (1) {
+  // Loop to accept incoming connections
+  while (running == 1) {
     // Accepting connections, requires the server_fd and an empty 'struct
     // sockaddr' and its length. On connection, fills it with the address info
     // of the client After accepting, all communication with the said client
@@ -563,70 +665,138 @@ int main(int argc, char *argv[]) {
     new_client.response = NULL;
     new_client.response_len = 0;
 
-    new_client.client_fd =
-        accept(server_fd, (struct sockaddr *)&new_client.client_address,
-               &new_client.address_len);
-
-    if (new_client.client_fd == -1)
-      err_n_die("Accepting");
+    if ((new_client.client_fd =
+             accept(server_fd, (struct sockaddr *)&new_client.client_address,
+                    &new_client.address_len)) == -1) {
+      // Checking how the accept method failed
+      // If errno == EINTR, it means the process was interrupted and the loop
+      // needs to break, in order to shutdown the server Otherwise something
+      // else is wrong, and err_n_die is used to handle that
+      // Have to do this for every error handling inside the while loop
+      if (errno == EINTR && !running)
+        break; // Breaking loop shuts the server down.
+      else
+        err_n_die("Accepting");
+    }
 
     pid_t pid;
 
-    if (new_client.client_fd)
-      pid = fork();
+    if ((pid = fork()) == -1) {
+      if (errno == EINTR && !running)
+        break;
+      else
+        err_n_die("Forking");
+    }
+    print_debug("Forked.\n");
 
     if (pid == 0) { // Inside Child process
+      print_debug("Inside Child Process.\n");
 
       if (close(server_fd) == -1) // Child should not be listening on server
         err_n_die("Closing Server File Descriptor");
+
+      print_debug("Closed Parent Server File Descriptor.\n");
 
       // Reading and responding
       // Now we can read the request from the client and send any response.
       int bytes_read =
           read(new_client.client_fd, new_client.read_buffer, READ_BUFFER_SIZE);
 
-      if (bytes_read == -1)
-        err_n_die("Reading");
+      if (bytes_read == -1) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Reading");
+      }
       (new_client.read_buffer)[bytes_read] = '\0';
+      print_debug("Incoming Request Read.\n");
 
       // Clearing any previous status codes
       memset(new_client.response_status, 0, STATUS_SIZE);
       (new_client.response_status)[0] = '\0';
 
-      if (strlen(root_dir) == 0) // If -r flag was not used, then the root_dir
-                                 // is not set yet and will have len of 0
-        if (set_root_dir() == -1)
-          err_n_die("Setting Root Directory");
+      // Setting Root Dir
+      if (strlen(root_dir) == 0) {
+        // If -r flag was not used, then the root_dir
+        // is not set yet and will have len of 0
+        if (set_root_dir() == -1) {
+          if (errno == EINTR && !running)
+            break;
+          else
+            err_n_die("Setting Root Directory");
+        }
+        print_debug("-r Option not used.\nRoot Directory set to default.\n");
+      }
 
-      if (parse_request(&new_client) == -1)
-        err_n_die("Parsing Request");
+      // Parse Request
+      if (parse_request(&new_client) == -1) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Parsing Request");
+      }
+      print_debug("Parsed Incoming Request.\n");
 
-      if (strncmp(new_client.request_method, "GET", 3) != 0)
-        err_n_die("Request Method");
+      // Checking Request Method Support
+      if (strncmp(new_client.request_method, "GET", 3) != 0) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Request Method");
+      }
+      print_debug("Request Method Valid & Supported.\n");
 
-      if (generate_response(&new_client) == -1)
-        err_n_die("Generating Response");
+      // Generating Response
+      if (generate_response(&new_client) == -1) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Generating Response");
+      }
+      print_debug("Response Generated.\n");
 
+      // Writing Response
       if (write(new_client.client_fd, new_client.response,
-                new_client.response_len) == -1)
-        err_n_die("Writing Response");
+                new_client.response_len) == -1) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Writing Response");
+      }
+      print_debug("Response Written to the Client File Descriptor.\n");
 
-      if (close(new_client.client_fd) == -1)
-        err_n_die("Closing Connection");
+      if (close(new_client.client_fd) == -1) {
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Closing Connection");
+      }
+      print_debug("Connection Closed.\n");
 
       free(new_client.response);
+      print_debug("Response Freed.\nExiting...\n");
       exit(0);
     } else if (pid > 0) {
-      if (close(new_client.client_fd) ==
-          -1) // Parent does not need client's fd anymore
-        err_n_die("Closing Client File Descriptor");
+      print_debug("Inside Parent Process.\n");
+
+      if (close(new_client.client_fd) == -1) {
+        // Parent does not need client's fd anymore
+        if (errno == EINTR && !running)
+          break;
+        else
+          err_n_die("Closing Client File Descriptor");
+      }
+
+      print_debug("Closed Child Client File Descriptor.\n");
     }
   }
 
-  printf("Shutting Down\n");
+  printf("\nShutting Down...\n");
 
   if (close(server_fd) == -1)
     err_n_die("Closing Server File Descriptor");
+
+  print_debug("Closed Server File Descriptor.\n");
 
   return 0;
 }
