@@ -72,6 +72,9 @@ struct client_info {
 int server_fd;
 struct sockaddr_in server_address;
 
+// Supported methods for the server
+char *SUPPORTED_METHODS[] = {"GET"};
+
 // Root dir of server and port
 int PORT = 1419;
 
@@ -97,6 +100,27 @@ void shutdown_handler(int s) {
   (void)s;
   running = 0;
   return;
+}
+
+// Check if the method is supported, is present in SUPPORTED_METHODS
+// Returns 1 if the method is valid, 0 is not, and -1 in case of error
+int is_method_valid(const char *method) {
+  if (!method)
+    return -1;
+  unsigned int methods_len =
+      sizeof(SUPPORTED_METHODS) / sizeof(SUPPORTED_METHODS[0]);
+
+  if (DEBUG == 1) {
+    puts("Supported Request Methods are:\n");
+    for (unsigned int i = 0; i < methods_len; ++i)
+      printf("%d. %s\n", i + 1, SUPPORTED_METHODS[i]);
+  }
+
+  for (unsigned int i = 0; i < methods_len; ++i)
+    if (strcmp(method, SUPPORTED_METHODS[i]) == 0)
+      return 1;
+
+  return 0;
 }
 
 // Reaps all child processes and does not let them become zombie processes as
@@ -272,7 +296,24 @@ int parse_request(struct client_info *client) {
   print_debug("Parsing Request.\n");
 
   if (DEBUG == 1)
-    printf("Received Request Path: %s\n", client->request_path);
+    printf("Received Request Path: %s\nReceived Request Method: %s\n",
+           client->request_path, client->request_method);
+
+  int method_valid = is_method_valid(client->request_method);
+  if (method_valid == -1) {
+    print_debug("Request Method Checking Failed.\n");
+    return -1;
+  } else if (method_valid == 0) {
+    // Responding with 501 Not Implemented
+    char *not_implemented_response = "HTTP/1.1 501 Not Implemented\r\n\r\n";
+    write(client->client_fd, not_implemented_response,
+          strlen(not_implemented_response));
+    print_debug("Request Method Not Supported.\n");
+    return -1;
+  }
+
+  print_debug("Request Method is Supported.\n");
+
   // Taking out any '%20's
   // When user requests for '/', the server should serve pwd
   if (simplify_url(client) == -1)
@@ -371,6 +412,7 @@ char *get_mime_type(const char *filepath) {
 }
 
 // Generates an HTTP response header
+// Defaults to 200, if status is empty
 int generate_header(char **header, char *status, const char *content_type,
                     unsigned int content_length, unsigned int *header_size) {
   if (status[0] == '\0')
@@ -754,15 +796,6 @@ int main(int argc, char *argv[]) {
           err_n_die("Parsing Request");
       }
       print_debug("Parsed Incoming Request.\n");
-
-      // Checking Request Method Support
-      if (strncmp(new_client.request_method, "GET", 3) != 0) {
-        if (errno == EINTR && !running)
-          break;
-        else
-          err_n_die("Request Method");
-      }
-      print_debug("Request Method Valid & Supported.\n");
 
       // Generating Response
       if (generate_response(&new_client) == -1) {
