@@ -96,3 +96,8 @@ Any text based mime types/data types
 images
 pdfs
 Other mime types can be downloaded
+
+Make conventions followed: https://www.gnu.org/prep/standards/html_node/Directory-Variables.html
+
+To change STATIC_DIR, have to recompile the program, even if using make before 'make install'
+If DESTDIR is used in the binary will not point to this temp static dir, if not compiled with so explicitly.

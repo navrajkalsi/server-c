@@ -22,7 +22,11 @@
 // Need to compile with -lmagic flag to use magic.h for get_mime_type()
 
 // Dir to house the static files for the server
-#define STATIC_DIR "/usr/local/share/server-c/"
+// Can be passed by the user when compiling manually, without make
+// Just for static files, bin may or may not be in the same dir
+#ifndef STATIC_DIR
+#define STATIC_DIR "/usr/local/share/server-c/static"
+#endif
 
 // Macros
 #define BACKLOG 10
@@ -32,6 +36,15 @@
 #define PATH_SIZE 4096
 // Response related
 #define STATUS_SIZE 32
+
+// Dir to be used in the program
+// Need not be equal to 'STATIC_DIR' during runtime,
+// as set_static_dir() will change it to env var
+// This is done to not recompile while installing, in case of compiling with
+// make
+// DOES NOT WORK as the env var could be changed, and I could not find any way
+// to set this var at compile time
+// char static_dir[PATH_SIZE] = STATIC_DIR;
 
 // Variable to determine running status of server
 // Used for shutting down server with SIGTERM/SIGINT
@@ -195,13 +208,15 @@ void parse_args(int argc, char *argv[]) {
 int set_root_dir(void) {
   if (!realpath("./", root_dir))
     return -1;
+  if (DEBUG == 1)
+    printf("Root Directory set to: %s\n", root_dir);
   return 0;
 }
 
 // Handles requesting of any static files (currently includes:
 // /favicon.ico, /server.js
-// Returns 1 if the path has to be dealt with statically and not to be used with
-// realpath() in parse_request()
+// Returns 1 if the path has to be dealt with statically and not to be used
+// with realpath() in parse_request()
 int check_static_request(struct client_info *client) {
   if (!client)
     return -1;
@@ -286,12 +301,12 @@ int parse_request(struct client_info *client) {
 
     // Have to append the root_dir to request_path, because if root_dir is set
     // with args the realpath() still considers the pwd as the root dir
-    char fullpath[PATH_SIZE]; // This path may be illegal to use, but that will
-                              // be sorted later
+    char fullpath[PATH_SIZE]; // This path may be illegal to use, but that
+                              // will be sorted later
     strncpy(fullpath, root_dir, PATH_SIZE); // Starting the path with root dir
     strcat(fullpath, "/");
-    strcat(fullpath, client->request_path); // Now the path will be root(set by
-                                            // user)/requested_file
+    strcat(fullpath, client->request_path); // Now the path will be root(set
+                                            // by user)/requested_file
     // This will work even if the user does not use -r flag, as set_root_dir()
     // will set the root_dir to pwd
     if (!realpath(fullpath, client->request_path)) {
@@ -316,11 +331,12 @@ int parse_request(struct client_info *client) {
       return -1;
     }
   } else if (is_path_static == 1) {
-    // If the request is for a static file from STATIC_DIR it will be made after
-    // prepending the STATIC_DIR
-    char static_dir[PATH_SIZE] = STATIC_DIR;
-    strncat(static_dir, client->request_path, PATH_SIZE - (strlen(static_dir)));
-    strncpy(client->request_path, static_dir, PATH_SIZE);
+    // If the request is for a static file from STATIC_DIR it will be made
+    // after prepending the STATIC_DIR
+    char temp_dir[PATH_SIZE] = STATIC_DIR;
+    strncat(temp_dir, "/", PATH_SIZE - (strlen(temp_dir)));
+    strncat(temp_dir, client->request_path, PATH_SIZE - (strlen(temp_dir)));
+    strncpy(client->request_path, temp_dir, PATH_SIZE);
   } else
     return -1;
 
@@ -391,7 +407,6 @@ int generate_header(char **header, char *status, const char *content_type,
 // 'size' is an output variable that is used to output the final size of the
 // response
 int read_file(struct client_info *client, const char *alternate_path) {
-
   FILE *file;
   if (alternate_path == NULL)
     file = fopen(client->request_path, "r");
@@ -415,9 +430,10 @@ int read_file(struct client_info *client, const char *alternate_path) {
     //
     // Alter code here to add more custom MIME types for static files
     //
-    char static_dir[PATH_SIZE] = STATIC_DIR;
-    if (strcmp(client->request_path, strncat(static_dir, "server.js",
-                                             PATH_SIZE - strlen(static_dir))) ==
+    char temp_dir[PATH_SIZE] = STATIC_DIR;
+    strncat(temp_dir, "/", PATH_SIZE - (strlen(temp_dir)));
+    if (strcmp(client->request_path,
+               strncat(temp_dir, "server.js", PATH_SIZE - strlen(temp_dir))) ==
         0)
       mime = strdup("application/javascript");
     else
@@ -520,15 +536,17 @@ int read_directory(struct client_info *client) {
   // Filling the response buffer with the server.html template
   // File only needs to be read here, since it has to be sent the new size,
   // including 'dirs'
-  char static_dir[PATH_SIZE] = STATIC_DIR;
-  if (read_file(client, strncat(static_dir, "server.html",
-                                PATH_SIZE - strlen(static_dir))) == -1)
+  char temp_dir[PATH_SIZE] = STATIC_DIR;
+  strncat(temp_dir, "/", PATH_SIZE - (strlen(temp_dir)));
+
+  if (read_file(client, strncat(temp_dir, "server.html",
+                                PATH_SIZE - strlen(temp_dir))) == -1)
     return -1;
 
   char *new_response = malloc(client->response_len);
 
   // Finding ~ in the html file
-  int mark_index;
+  unsigned int mark_index;
   for (mark_index = 0; mark_index < client->response_len - dirs_size;
        ++mark_index) {
     if ((client->response)[mark_index] == '~')
@@ -628,8 +646,8 @@ int main(int argc, char *argv[]) {
   printf("Server Listening at Port: %d\n", PORT);
 
   // Child processes will be creating next.
-  // When a child exits, it is a zomibe process until its exit status is read by
-  // the parent (reaping) Reaping child processes
+  // When a child exits, it is a zomibe process until its exit status is read
+  // by the parent (reaping) Reaping child processes
   struct sigaction sa_reap;
   // The assigned function will automatically be called when any signal is
   // received from a child
