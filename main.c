@@ -308,6 +308,7 @@ int parse_request(struct client_info *client) {
     char *not_implemented_response = "HTTP/1.1 501 Not Implemented\r\n\r\n";
     write(client->client_fd, not_implemented_response,
           strlen(not_implemented_response));
+    errno = ENOTSUP;
     print_debug("Request Method Not Supported.\n");
     return -1;
   }
@@ -354,31 +355,34 @@ int parse_request(struct client_info *client) {
       // If the errno is set to 2, that means the requested directory/file
       // does not exist Then the server serves the '404.html file instead'
       if (errno == 2) {
+        strncpy(client->request_path, "/404.html", PATH_SIZE);
         snprintf(client->response_status, STATUS_SIZE,
                  "404 Not Found"); // Setting status code
-        if (!realpath("404.html",
-                      client->request_path)) // If the file does not exist,
-                                             // request path is set to the
-                                             // absolute path of 404.html file
-          return -1;
+        is_path_static = 1;
+        puts("break\n");
       } else
         return -1;
+    } else {
+      // Comparing the starting chars of the 'root_dir' and 'request_path' to
+      // prevent any path traversal
+      if (strncmp(root_dir, client->request_path, strlen(root_dir)) != 0) {
+        errno = EPERM;
+        return -1;
+      }
     }
+  }
 
-    // Comparing the starting chars of the 'root_dir' and 'request_path' to
-    // prevent any path traversal
-    if (strncmp(root_dir, client->request_path, strlen(root_dir)) != 0) {
-      errno = EPERM;
-      return -1;
-    }
-  } else if (is_path_static == 1) {
+  // Not using else if, to serve 404.html if absolute path does not exist
+  if (is_path_static == 1) {
     // If the request is for a static file from STATIC_DIR it will be made
     // after prepending the STATIC_DIR
     char temp_dir[PATH_SIZE] = STATIC_DIR;
     strncat(temp_dir, "/", PATH_SIZE - (strlen(temp_dir)));
     strncat(temp_dir, client->request_path, PATH_SIZE - (strlen(temp_dir)));
     strncpy(client->request_path, temp_dir, PATH_SIZE);
-  } else
+  }
+
+  if (is_path_static == -1)
     return -1;
 
   return 0;
@@ -789,7 +793,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Parse Request
-      if (parse_request(&new_client) == -1) {
+      if (parse_request(&new_client) == -1 && errno != ENOENT) {
         if (errno == EINTR && !running)
           break;
         else
