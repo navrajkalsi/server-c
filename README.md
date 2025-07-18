@@ -7,9 +7,8 @@ Serves static files, support MIME type detection, handles directory listing (__w
 
 ## Motivation
 
-The reason to develop a server is a strange one.
-I have been using __Neovim__ for over an year now, and have fallen in love with vim motions.
-Whenever I was using a local server, I was missing the motions to navigate around in the file tree.
+I wanted to know more about HTTP requests & servers, request-handling, and have some experience in C.
+Plus whenever I was using a local server, I was missing the vim motions to navigate around in the file tree.
 
 So I decided to build one for a hopefully great learning experience and my personal usage.
 
