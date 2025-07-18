@@ -20,7 +20,7 @@ and MIME types, and the C language in general.
 * Supports __Linux & most UNIX systems__.
 * __MIME detection__ ensures proper previewing of file, done using `libmagic`.
 * Supported formats for preview: __Text, Images, PDFs__.
-* Informs if a requested file is __empty or unsupported__, with help of MIME types.
+* Informs if a requested file is __empty or unsupported for preview__(can be downloaded in that case), with help of MIME types.
 * __Directory listing__ is done by using a static html file & javascript.
 * __Custom 404 page__ is served in case of a 404 response.
 * __Clean Shutdown__ is done by handling interrupt and kill signals.
@@ -65,6 +65,9 @@ make clean
 __STATIC_DIR CAN ONLY BE CHANGED DURING COMPILATION__, i.e., during `make`, as it is used as a preprocessor macro.
 
 ## Usage
+
+__If `server-c` command is not found after installation, the directory in which the binary got installed is not on the PATH.
+ADD THE MAKE INSTALLATION DIRECTORY TO THE PATH AND TRY AGAIN.__
 
 The following flags can be used to alter the behaviour of the program:
 
