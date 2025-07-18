@@ -51,7 +51,6 @@ cd server-c
 ```bash
 make
 make install
-make clean
 ```
 By default, the binary is installed to __/usr/local/bin__ & the static files required for the
 server go in __/usr/local/share/server-c/static__.
