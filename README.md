@@ -29,7 +29,7 @@ and MIME types, and the C language in general.
 
 AS OF NOW, THIS SERVER ONLY SUPPORTS UNIX SYSTEMS.
 
-* For `Windows`, __winsock__ API has to be imnplemented. Although, `WSL` can be used in that case.
+* For `Windows`, __winsock__ API has to be implemented. Although, `WSL` can be used in that case.
 
 * For `Linux`:
 
