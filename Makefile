@@ -68,4 +68,4 @@ uninstall:
 	rm -rf $(DESTDIR)$(datadir)/$(NAME)
 
 clean:
-	markdownrm -f $(NAME) $(OBJ)
+	rm -f $(NAME) $(OBJ)
