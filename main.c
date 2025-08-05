@@ -23,7 +23,7 @@
 
 // Dir to house the static files for the server
 // Can be passed by the user when compiling manually, without make
-// Just for static files, bin may or may not be in the same dir
+// Just for static files, bin may or may not be in the same dir, most likely not
 #ifndef STATIC_DIR
 #define STATIC_DIR "/usr/local/share/server-c/static"
 #endif
@@ -36,15 +36,6 @@
 #define PATH_SIZE 4096
 // Response related
 #define STATUS_SIZE 32
-
-// Dir to be used in the program
-// Need not be equal to 'STATIC_DIR' during runtime,
-// as set_static_dir() will change it to env var
-// This is done to not recompile while installing, in case of compiling with
-// make
-// DOES NOT WORK as the env var could be changed, and I could not find any way
-// to set this var at compile time
-// char static_dir[PATH_SIZE] = STATIC_DIR;
 
 // Variable to determine running status of server
 // Used for shutting down server with SIGTERM/SIGINT
@@ -76,15 +67,14 @@ struct sockaddr_in server_address;
 char *SUPPORTED_METHODS[] = {"GET"};
 
 // Root dir of server and port
+char root_dir[PATH_SIZE] = "\0";
 int PORT = 1419;
 
-char root_dir[PATH_SIZE] = "\0";
 // Pass -d flag to use debug mode, prints every activity to the terminal
 int DEBUG = 0;
+
 // Pass -a to accept incoming connections from all IPs
 // By default, accepts request only from localhost
-// Cannot set to INADDR_LOOPBACK here since its value is not determined until
-// runtime
 in_addr_t client_addr_t = INADDR_LOOPBACK;
 
 void err_n_die(const char *operation) {
@@ -107,6 +97,7 @@ void shutdown_handler(int s) {
 int is_method_valid(const char *method) {
   if (!method)
     return -1;
+
   unsigned int methods_len =
       sizeof(SUPPORTED_METHODS) / sizeof(SUPPORTED_METHODS[0]);
 
@@ -184,7 +175,6 @@ void parse_args(int argc, char *argv[]) {
       puts("Debug Mode On.\n");
       break;
     case 'a':
-      // client_addr_t = htonl(INADDR_ANY);
       client_addr_t = INADDR_ANY;
       args_parsed++;
       break;
@@ -238,7 +228,7 @@ int set_root_dir(void) {
 }
 
 // Handles requesting of any static files (currently includes:
-// /favicon.ico, /server.js
+// /favicon.ico, /server.js, /server.html, /404.html
 // Returns 1 if the path has to be dealt with statically and not to be used
 // with realpath() in parse_request()
 int check_static_request(struct client_info *client) {
@@ -253,6 +243,7 @@ int check_static_request(struct client_info *client) {
     return 1;
   if (strcmp(client->request_path, "/404.html") == 0)
     return 1;
+
   return 0;
 }
 
@@ -264,8 +255,10 @@ int simplify_url(struct client_info *client) {
   // An array of search terms could be implemented if there more string that
   // need to be replaced
 
-  if (strcmp(client->request_path, "/") == 0)
+  if (strcmp(client->request_path, "/") == 0) {
     strcpy(client->request_path, "./");
+    return 0; // No need to check %20 now
+  }
 
   char *charPtr;
   // Replacing terms that need to be replaced
@@ -589,7 +582,7 @@ int read_directory(struct client_info *client) {
                                 PATH_SIZE - strlen(temp_dir))) == -1)
     return -1;
 
-  char *new_response = malloc(client->response_len);
+  char *new_response = malloc(client->response_len + 1);
 
   // Finding ~ in the html file
   unsigned int mark_index;
