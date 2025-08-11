@@ -28,7 +28,9 @@ INSTALL ?= install
 NAME := server-c
 SRC := main.c
 OBJ := $(SRC:.c=.o)
-CFLAGS ?= -Wall -Werror -Wextra -g
+# CFLAGS ?= -Wall -Werror -Wextra -g
+# Dev Flags
+CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined
 LDFLAGS ?= -lmagic
 # Static_Dir for server files
 STATIC_DIR ?= $(datadir)/$(NAME)/static
