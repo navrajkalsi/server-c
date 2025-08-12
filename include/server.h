@@ -1,6 +1,18 @@
 #pragma once
 
+#include "main.h"
+#include "utils.h"
+
+#ifdef OS_WIN
+#include <winsock2.h>
+#elifdef OS_UNIX
 #include <sys/socket.h>
+#else
+#error Unable to set OS.
+#endif
+
+// Supported request methods enum
+typedef enum { GET } Request_Method;
 
 // Client struct, store information on a client: file descriptor (returned by
 // accept function) ,client_address (filled by accept()) which can be parsed to
@@ -8,14 +20,13 @@
 // pointer to read_buffer (to read request into), pointer to request_method
 // (filled by parse_request()), pointer to request_path (also filled by
 // parse_request())
-struct client_info {
-  struct sockaddr_storage client_address;
+typedef struct {
+  // struct sockaddr_storage client_address;
+  Str *request;
+  Str *request_path;
+  Str *response;
+  Str *reponse_status;
+  Request_Method request_method;
   int client_fd;
   socklen_t address_len;
-  char read_buffer[READ_BUFFER_SIZE];
-  char request_method[METHOD_SIZE];
-  char request_path[PATH_SIZE];
-  char *response;
-  size_t response_len;
-  char response_status[STATUS_SIZE];
-}
+} Client;
