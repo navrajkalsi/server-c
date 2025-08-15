@@ -2,8 +2,15 @@
 
 #include "main.h"
 #include "utils.h"
-#include <netinet/in.h>
 #include <stdint.h>
+
+#ifdef OS_UNIX
+#include <netinet/in.h>
+#elifdef OS_WIN
+#include <winsock2.h>
+#else
+#error Unable to set OS.
+#endif
 
 typedef struct {
   Str root_dir;
@@ -14,7 +21,7 @@ typedef struct {
 
 // Parses args from the command line, if any
 // Errors and exits if the root_dir passed does not exist
-Config parse_args(int argc, char *const argv[]);
+Config parse_args(int argc, char *argv[]);
 
 // Prints -h help
 void print_usage(char *const prg);

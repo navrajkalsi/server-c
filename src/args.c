@@ -1,10 +1,8 @@
 #include "../include/args.h"
 #include "../include/utils.h"
-#include <bits/getopt_core.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -12,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-Config parse_args(int argc, char *const argv[]) {
+Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
   Config cfg = {{NULL, 0}, INADDR_LOOPBACK, DEFAULT_PORT, false};
 
@@ -20,8 +18,8 @@ Config parse_args(int argc, char *const argv[]) {
            // because getopt() can return -1 as well, therefore we will be
            // comparing the ASCII values of char literals
 
-  // ':' is required to tell if the flag requires an argument after the flag in
-  // cmd line
+  // ':' is required to tell if the flag requires an argument after the flag
+  // in cmd line
   unsigned int args_parsed = 0; // For debugging
   while ((arg = getopt(argc, argv, "adhp:r:")) != -1) {
     switch (arg) {
