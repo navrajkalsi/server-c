@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
@@ -35,11 +36,17 @@ Config parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       exit(EXIT_SUCCESS);
     case 'p':
-      cfg.port = validate_port(optarg);
+      if (validate_port(optarg, &(cfg.port)) < 0) {
+        free_config(&cfg);
+        err_n_die("Setting port failed.\n", true);
+      }
       args_parsed++;
       break;
     case 'r':
-      cfg.root_dir = validate_root(optarg);
+      if (validate_root(optarg, &(cfg.root_dir)) < 0) {
+        free_config(&cfg);
+        err_n_die("Setting root directory failed.\n", true);
+      }
       args_parsed++;
       break;
     case '?': // If an unknown flag or no argument is passed for an option
@@ -65,14 +72,17 @@ Config parse_args(int argc, char *argv[]) {
 
   // If -r not supplied, then using ./ as root of server
   if (!cfg.root_dir.data)
-    cfg.root_dir = validate_root(DEFAULT_ROOT_DIR);
+    if (validate_root(DEFAULT_ROOT_DIR, &(cfg.root_dir)) < 0) {
+      free_config(&cfg);
+      err_n_die("Setting root directory failed.\n", true);
+    }
 
   print_args(args_parsed, &cfg);
 
   return cfg;
 }
 
-void print_usage(char *const prg) {
+void print_usage(char *prg) {
   printf("Usage: %s [OPTIONS] [ARGS...]\n"
          "Options:\n"
          "-a             Accept Incoming Connections from all IPs, defaults "
@@ -96,52 +106,89 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
     puts("Server Accepting Incoming Connections from Localhost Only.\n");
 }
 
-uint16_t validate_port(const char *port_arg) {
-  if (!port_arg)
-    err_n_die("Validating port failed.\nNull pointer passed.\n", false);
-  // errno can be set to any non-zero value by a library function call
-  // regardless of whether there was an error, so it needs to be cleared
-  // in order to check the error set by strtol
-  errno = 0;
+int validate_port(const char *port_arg, uint16_t *out) {
+  if (!port_arg || !out) {
+    errno = EFAULT;
+    return -1;
+  }
+
   char *end;
   // 'optarg' is a global variable set by getopt()
   const long port = strtol(port_arg, &end, 10);
   if (*end != '\0') {
-    err_n_die("Please enter a valid port number between 0 and 65535!\n", false);
-  } else if (port <= 0 || port > 65535)
-    err_n_die("Port number is out of range!\n", true);
+    fputs("Please enter a valid port number between 0 and 65535!\n", stderr);
+    errno = EINVAL;
+    return -1;
+  } else if (port < 0 || port > 65535) {
+    fputs("Port number is out of range!\n", stderr);
+    errno = EDOM;
+    return -1;
+  }
 
-  return (uint16_t)port;
+  *out = (uint16_t)port;
+  return 0;
 }
 
-Str validate_root(const char *root_dir) {
-  if (!root_dir)
-    err_n_die("Validating root_dir failed.\nNull pointer passed.\n", false);
-
-  Str root_S = {NULL, 0};
+int validate_root(const char *root_dir, Str *out) {
+  if (!root_dir || !out) {
+    errno = EFAULT;
+    return -1;
+  }
 
   // By passing NULL, realpath allocates memory on its own
   // Owner has to free the memory allocated by realpath
-  root_S.data = realpath(root_dir, NULL);
+  out->data = realpath(root_dir, NULL);
 
-  if (!root_S.data)
-    err_n_die("Validating root_dir failed.\nRealpath error.\n", true);
+  if (!out->data) // realpath sets errno
+    return -1;
 
-  root_S.len = (ptrdiff_t)strlen(root_S.data);
+  out->len = (ptrdiff_t)strlen(out->data);
 
-  return root_S;
+  if (!is_dir(out))
+    return 0;
+  else
+    return -1;
+}
+
+int is_dir(Str *root_dir) {
+  if (!root_dir || !root_dir->data) {
+    errno = EFAULT;
+    return -1;
+  }
+
+  // Metadata for the root
+  struct stat root_stat;
+  if (stat(root_dir->data, &root_stat) == -1) // stat sets errno
+    return -1;
+
+  if (S_ISDIR(root_stat.st_mode))
+    return 0;
+  if (S_ISREG(root_stat.st_mode)) {
+    fputs("It seems the argument for root directory points to a file and not a "
+          "directory.\n",
+          stderr);
+    errno = EINVAL;
+    return -1;
+  } else {
+    fputs("Either the root directory does not exist, is a file, or you do not "
+          "have the permissions to access it.\n",
+          stderr);
+    errno = EINVAL;
+    return -1;
+  }
 }
 
 void free_config(Config *cfg) {
   if (!cfg)
     err_n_die("Freeing config failed.\nNull pointer passed.\n", false);
 
-  Str root_S = cfg->root_dir;
-  if (root_S.data)
-    free(root_S.data);
+  Str *root_S = &(cfg->root_dir);
 
-  root_S.data = NULL;
-  root_S.len = 0;
+  if (root_S->data)
+    free(root_S->data);
+
+  root_S->data = NULL;
+  root_S->len = 0;
 
   return;
 }

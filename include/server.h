@@ -2,14 +2,7 @@
 
 #include "main.h"
 #include "utils.h"
-
-#ifdef OS_UNIX
 #include <sys/socket.h>
-#elifdef OS_WIN
-#include <winsock2.h>
-#else
-#error Unable to set OS.
-#endif
 
 // Supported request methods enum
 typedef enum { GET } Request_Method;

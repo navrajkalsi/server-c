@@ -2,15 +2,8 @@
 
 #include "main.h"
 #include "utils.h"
-#include <stdint.h>
-
-#ifdef OS_UNIX
 #include <netinet/in.h>
-#elifdef OS_WIN
-#include <winsock2.h>
-#else
-#error Unable to set OS.
-#endif
+#include <stdint.h>
 
 typedef struct {
   Str root_dir;
@@ -24,16 +17,19 @@ typedef struct {
 Config parse_args(int argc, char *argv[]);
 
 // Prints -h help
-void print_usage(char *const prg);
+void print_usage(char *prg);
 
 // Prints parsed args
 void print_args(unsigned int args_parsed, const Config *cfg);
 
-// Validates port from optarg, exits on error, returns port on success
-uint16_t validate_port(const char *port);
+// Validates port from optarg, exits on error, points out to port
+int validate_port(const char *port, uint16_t *out);
 
-// Validates root_dir, exits on error, returns the Str struct
-Str validate_root(const char *root_dir);
+// Validates root_dir, exits on error, points out to root
+int validate_root(const char *root_dir, Str *out);
+
+// Validates if root_dir is actually a directory and not a 'file'
+int is_dir(Str *root_dir);
 
 // Free root_dir.data
 void free_config(Config *cfg);
