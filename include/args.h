@@ -7,8 +7,8 @@
 
 typedef struct {
   Str root_dir;
-  in_addr_t client_addr_t; // Incoming requests from localhost or other IPs also
-  uint16_t port;
+  char *port;
+  bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;
 } Config;
 
@@ -23,7 +23,7 @@ void print_usage(char *prg);
 void print_args(unsigned int args_parsed, const Config *cfg);
 
 // Validates port from optarg, exits on error, points out to port
-int validate_port(const char *port, uint16_t *out);
+int validate_port(char *port, char **out);
 
 // Validates root_dir, exits on error, points out to root
 int validate_root(const char *root_dir, Str *out);

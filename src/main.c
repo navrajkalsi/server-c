@@ -1,10 +1,23 @@
 #include "../include/args.h"
+#include "../include/server.h"
+
+bool RUNNING = true;
 
 int main(int argc, char *argv[]) {
+  int server_fd;
 
   Config config = parse_args(argc, argv);
 
-  free_config(&config);
+  server_fd = setup_server(&config);
+
+  free_config(&config); // No need for this now
+
+  if (server_fd == -1) {
+    err_n_die("Setting server up failed.\n", true);
+  }
+
+  if (start_server(server_fd) == -1)
+    err_n_die("Starting server failed.\n", true);
 
   return 0;
 }

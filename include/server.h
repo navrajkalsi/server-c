@@ -1,25 +1,16 @@
 #pragma once
 
+#include "args.h"
 #include "main.h"
 #include "utils.h"
 #include <sys/socket.h>
 
 // Supported request methods enum
-typedef enum { GET } Request_Method;
+typedef enum { GET } RequestMethod;
 
-// Client struct, store information on a client: file descriptor (returned by
-// accept function) ,client_address (filled by accept()) which can be parsed to
-// version 4 or 6 depending on usecase, address_len (also filled by accept()),
-// pointer to read_buffer (to read request into), pointer to request_method
-// (filled by parse_request()), pointer to request_path (also filled by
-// parse_request())
-typedef struct {
-  // struct sockaddr_storage client_address;
-  Str *request;
-  Str *request_path;
-  Str *response;
-  Str *reponse_status;
-  Request_Method request_method;
-  int client_fd;
-  socklen_t address_len;
-} Client;
+// Calls all the functions, setting up the server and returns the file
+// descriptor for the server socket, or -1 on error
+int setup_server(Config *cfg);
+
+// The actual loop accepting connections
+int start_server(int server_fd);

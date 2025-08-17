@@ -1,5 +1,6 @@
 #include "../include/args.h"
 #include "../include/utils.h"
+#include <bits/getopt_core.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -13,7 +14,7 @@
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
-  Config cfg = {{NULL, 0}, INADDR_LOOPBACK, DEFAULT_PORT, false};
+  Config cfg = {{NULL, 0}, DEFAULT_PORT, false, false};
 
   int arg; // cannot be char, although the switch will compare it to char,
            // because getopt() can return -1 as well, therefore we will be
@@ -25,7 +26,7 @@ Config parse_args(int argc, char *argv[]) {
   while ((arg = getopt(argc, argv, "adhp:r:")) != -1) {
     switch (arg) {
     case 'a':
-      cfg.client_addr_t = INADDR_ANY;
+      cfg.accept_all = true;
       args_parsed++;
       break;
     case 'd':
@@ -97,17 +98,17 @@ void print_usage(char *prg) {
 void print_args(unsigned int args_parsed, const Config *cfg) {
   printf("Parsed %u Argument(s).\n"
          "Root Directory set to: %s\n"
-         "Port set to: %u\n"
+         "Port set to: %s\n"
          "Debug Mode set to: %s\n",
          args_parsed, cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off");
-  if (cfg->client_addr_t == INADDR_ANY)
-    puts("Server Accepting Incoming Connections from all IPs.\n");
-  else
-    puts("Server Accepting Incoming Connections from Localhost Only.\n");
+
+  cfg->accept_all
+      ? puts("Server Accepting Incoming Connections from all IPs.\n")
+      : puts("Server Accepting Incoming Connections from Localhost Only.\n");
 }
 
-int validate_port(const char *port_arg, uint16_t *out) {
-  if (!port_arg || !out) {
+int validate_port(char *port_arg, char **out) {
+  if (!port_arg || !out || !(*out)) {
     errno = EFAULT;
     return -1;
   }
@@ -125,7 +126,7 @@ int validate_port(const char *port_arg, uint16_t *out) {
     return -1;
   }
 
-  *out = (uint16_t)port;
+  *out = port_arg;
   return 0;
 }
 
