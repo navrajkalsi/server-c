@@ -9,3 +9,6 @@
 
 // Utils.c specific
 extern bool RUNNING; // For shutdown handling
+
+// Client.c specific
+#define BUF_MAX 8192

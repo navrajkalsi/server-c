@@ -124,7 +124,9 @@ int start_server(int server_fd) {
     // not known beforehand
     // Though it is not necessary here, as all ips will be mapped to ip6
     struct sockaddr_storage client_address;
+    // client_init could be used
     Client client;
+    client.request = &((Str){NULL, 0});
     client.address_len = sizeof client_address;
     client.address = &client_address;
 
@@ -149,7 +151,7 @@ int start_server(int server_fd) {
   if (RUNNING)
     return -1;
   else
-    puts("Shutting Down.\n");
+    puts("\bShutting Down.\n");
 
   return 0;
 };

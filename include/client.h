@@ -20,6 +20,10 @@ typedef struct {
   socklen_t address_len;
 } Client;
 
+int client_init(Client *out);
+
 int handle_client(Client *client);
 
-void print_request(Client *client);
+void print_client(Client *client);
+
+void free_client(Client *client);

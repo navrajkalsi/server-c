@@ -1,12 +1,29 @@
 #include "../include/utils.h"
 #include "../include/main.h"
 
+#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+int str_init(Str *out) {
+  if (out && (out = (Str *)malloc(sizeof(Str))))
+    return 0;
+
+  errno = EFAULT;
+  return -1;
+}
+
+void str_free(Str *in) {
+  if (in && in->data) {
+    free(in->data);
+    in->len = 0;
+  }
+  return;
+}
 
 void err_n_die(const char *msg, bool print_errno) {
   fputs(msg, stderr);
