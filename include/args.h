@@ -29,7 +29,10 @@ int validate_port(char *port, char **out);
 int validate_root(const char *root_dir, Str *out);
 
 // Validates if root_dir is actually a directory and not a 'file'
-int is_dir(Str *root_dir);
+int is_dir(const Str *root_dir);
 
 // Free root_dir.data
 void free_config(Config *cfg);
+
+// Prints error for individual args
+void arg_error(char opt, const char *msg);

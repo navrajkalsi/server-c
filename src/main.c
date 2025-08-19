@@ -13,11 +13,11 @@ int main(int argc, char *argv[]) {
   free_config(&config); // No need for this now
 
   if (server_fd == -1) {
-    err_n_die("Setting server up failed.\n", true);
+    err_n_die("Setting server up failed", true);
   }
 
   if (start_server(server_fd) == -1)
-    err_n_die("Starting server failed.\n", true);
+    err_n_die("Server failed", true);
 
   return 0;
 }

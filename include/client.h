@@ -11,11 +11,11 @@
 // parse_request())
 typedef struct {
   struct sockaddr_storage *address;
-  Str *request;
-  Str *request_path;
-  Str *response;
-  Str *reponse_status;
-  RequestMethod request_method;
+  Str request;
+  Str request_path;
+  Str response;
+  Str reponse_status;
+  // RequestMethod request_method; // if required in future
   int fd;
   socklen_t address_len;
 } Client;

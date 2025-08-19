@@ -3,6 +3,7 @@
 #include "../include/main.h"
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
+#include <asm-generic/errno.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -12,10 +13,8 @@
 #include <unistd.h>
 
 int setup_server(Config *cfg) {
-  if (!cfg) {
-    errno = EFAULT;
-    return -1;
-  }
+  if (!cfg)
+    return null_ptr("Invalid config pointer");
 
   int server_fd;
   struct addrinfo hints, *out, *current;
@@ -35,6 +34,8 @@ int setup_server(Config *cfg) {
                                     &hints, &out)) < 0) {
     if (!errno)
       fputs(gai_strerror(getaddr_status), stderr);
+    else
+      err("Getting host info", true);
     return -1;
   }
 
@@ -96,29 +97,27 @@ int setup_server(Config *cfg) {
 
   freeaddrinfo(out);
 
-  if (server_fd == -1)
-    return -1;
-
+  if (server_fd == -1) {
+    errno = (server_fd == -1) ? ECONNABORTED : errno;
+    return err("Getting server file descriptor", true);
+  }
   if (listen(server_fd, BACKLOG) < 0)
-    return -1;
-  else
-    printf("Server Listening on port: %s\n", cfg->port);
+    return err("Listening", true);
 
+  printf("Server Listening on port: %s\n", cfg->port);
   return server_fd;
 }
 
 int start_server(int server_fd) {
-  if (server_fd < 0) {
-    errno = EFAULT;
-    return -1;
-  }
+  if (server_fd < 0)
+    return null_ptr("Invalid server descriptor"); // null erroring for now
 
   RUNNING = true;
   setup_sig_handler();
 
   // In the loop, a function call can error in two ways, if SIGTERM or SIGKILL
   // is received || the function itself errors
-  // In former, errno would be EINT
+  // In former, errno would be EINTR
   while (RUNNING) {
     // sockaddr_storage is better to store addresses than sockaddr, if ip v is
     // not known beforehand
@@ -126,32 +125,48 @@ int start_server(int server_fd) {
     struct sockaddr_storage client_address;
     // client_init could be used
     Client client;
-    client.request = &((Str){NULL, 0});
+    client.request = (Str){};
     client.address_len = sizeof client_address;
     client.address = &client_address;
 
     if ((client.fd = accept(server_fd, (struct sockaddr *)&client_address,
-                            &(client.address_len))) < 0)
+                            &(client.address_len))) < 0) {
+      if (errno == EINTR && !RUNNING)
+        break; // shutdown
+      if (errno == ECONNABORTED) {
+        err("Connection aborted",
+            true); // connection aborted, maybe client closed connection
+        continue;
+      }
+      err("Accepting connection", true);
       break;
+    }
 
-    int status = handle_client(&client);
-    close(client.fd);
+    int status;
+    if ((status = handle_client(&client)) < 0)
+      err("Handling client", true);
+
+    if (close(client.fd) < 0) {
+      err("Closing client", true);
+      break;
+    }
 
     if (status < 0)
-      return -1;
+      break;
   }
 
-  close(server_fd);
+  if (close(server_fd) < 0)
+    return err("Closing server", true);
 
   // If RUNNING is still true, then a function call errored out
-  // If a function errored due to interrupt signal, then the signal handler will
-  // set RUNNING to false and then we can shutdown, otherwise this was an actual
-  // error and return -1
-  // If interrupted the errno at this point would be EINTR
+  // If a function errored due to interrupt signal, then the signal handler
+  // will set RUNNING to false and then we can shutdown, otherwise this was an
+  // actual error and return -1 If interrupted the errno at this point would
+  // be EINTR
   if (RUNNING)
-    return -1;
+    return err("Server terminated", true);
   else
-    puts("\bShutting Down.\n");
+    puts("\b\bShutting Down...\n");
 
   return 0;
 };

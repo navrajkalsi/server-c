@@ -1,5 +1,6 @@
 #include "../include/args.h"
 #include "../include/utils.h"
+#include <asm-generic/errno-base.h>
 #include <bits/getopt_core.h>
 #include <ctype.h>
 #include <errno.h>
@@ -39,29 +40,25 @@ Config parse_args(int argc, char *argv[]) {
     case 'p':
       if (validate_port(optarg, &(cfg.port)) < 0) {
         free_config(&cfg);
-        err_n_die("Setting port failed.\n", true);
+        err_n_die("Invalid port number", true);
       }
       args_parsed++;
       break;
     case 'r':
       if (validate_root(optarg, &(cfg.root_dir)) < 0) {
         free_config(&cfg);
-        err_n_die("Setting root directory failed.\n", true);
+        err_n_die("Invalid root directory", true);
       }
       args_parsed++;
       break;
     case '?': // If an unknown flag or no argument is passed for an option
               // 'optopt' is set to the flag
       if (optopt == 'p')
-        fputs("Option '-p' requires passing a valid port number\n"
-              "Use '-h' for usage.\n",
-              stderr);
+        arg_error('p', "requires a valid port number");
       else if (optopt == 'r')
-        fputs("Option '-r' requries passing a valid directory path\n"
-              "Use '-h' for usage.\n",
-              stderr);
+        arg_error('r', "requires a valid directory path");
       else if (isprint(optopt))
-        fprintf(stderr, "Unknown option: '-%c'.\n", optopt);
+        arg_error((char)optopt, "unknown option");
       else
         fputs("Unknown option character used!\n", stderr);
       exit(EXIT_FAILURE);
@@ -84,7 +81,7 @@ Config parse_args(int argc, char *argv[]) {
 }
 
 void print_usage(char *prg) {
-  printf("Usage: %s [OPTIONS] [ARGS...]\n"
+  printf("\nUsage: %s [OPTIONS] [ARGS...]\n"
          "Options:\n"
          "-a             Accept Incoming Connections from all IPs, defaults "
          "to Localhost only.\n"
@@ -96,11 +93,13 @@ void print_usage(char *prg) {
 }
 
 void print_args(unsigned int args_parsed, const Config *cfg) {
-  printf("Parsed %u Argument(s).\n"
-         "Root Directory set to: %s\n"
+  if (args_parsed)
+    printf("Parsed %u Argument(s).\n", args_parsed);
+
+  printf("Root Directory set to: %s\n"
          "Port set to: %s\n"
          "Debug Mode set to: %s\n",
-         args_parsed, cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off");
+         cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off");
 
   cfg->accept_all
       ? puts("Server Accepting Incoming Connections from all IPs.\n")
@@ -108,21 +107,18 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
 }
 
 int validate_port(char *port_arg, char **out) {
-  if (!port_arg || !out || !(*out)) {
-    errno = EFAULT;
-    return -1;
-  }
+  if (!port_arg || !out)
+    return null_ptr();
 
   char *end;
   // 'optarg' is a global variable set by getopt()
   const long port = strtol(port_arg, &end, 10);
   if (*end != '\0') {
-    fputs("Please enter a valid port number between 0 and 65535!\n", stderr);
-    errno = EINVAL;
+    errno = EINVAL; // not a valid number
     return -1;
-  } else if (port < 0 || port > 65535) {
-    fputs("Port number is out of range!\n", stderr);
-    errno = EDOM;
+  }
+  if (port < 0 || port > 65535) {
+    errno = ERANGE; // out of range
     return -1;
   }
 
@@ -131,10 +127,8 @@ int validate_port(char *port_arg, char **out) {
 }
 
 int validate_root(const char *root_dir, Str *out) {
-  if (!root_dir || !out) {
-    errno = EFAULT;
-    return -1;
-  }
+  if (!root_dir || !out)
+    return null_ptr();
 
   // By passing NULL, realpath allocates memory on its own
   // Owner has to free the memory allocated by realpath
@@ -145,17 +139,12 @@ int validate_root(const char *root_dir, Str *out) {
 
   out->len = (ptrdiff_t)strlen(out->data);
 
-  if (!is_dir(out))
-    return 0;
-  else
-    return -1;
+  return is_dir(out);
 }
 
-int is_dir(Str *root_dir) {
-  if (!root_dir || !root_dir->data) {
-    errno = EFAULT;
-    return -1;
-  }
+int is_dir(const Str *root_dir) {
+  if (!root_dir || !root_dir->data)
+    return null_ptr();
 
   // Metadata for the root
   struct stat root_stat;
@@ -164,24 +153,16 @@ int is_dir(Str *root_dir) {
 
   if (S_ISDIR(root_stat.st_mode))
     return 0;
-  if (S_ISREG(root_stat.st_mode)) {
-    fputs("It seems the argument for root directory points to a file and not a "
-          "directory.\n",
-          stderr);
-    errno = EINVAL;
-    return -1;
-  } else {
-    fputs("Either the root directory does not exist, is a file, or you do not "
-          "have the permissions to access it.\n",
-          stderr);
-    errno = EINVAL;
-    return -1;
-  }
+
+  errno = ENOTDIR;
+  return -1;
 }
 
 void free_config(Config *cfg) {
-  if (!cfg)
-    err_n_die("Freeing config failed.\nNull pointer passed.\n", false);
+  if (!cfg) {
+    errno = EFAULT;
+    err_n_die("Freeing config failed.\n", true);
+  }
 
   Str *root_S = &(cfg->root_dir);
 
@@ -192,4 +173,8 @@ void free_config(Config *cfg) {
   root_S->len = 0;
 
   return;
+}
+
+void arg_error(char opt, const char *msg) {
+  fprintf(stderr, "Option '-%c' %s\nUse -h for usage.\n", opt, msg);
 }

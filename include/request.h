@@ -4,6 +4,7 @@
 
 int handle_request(Client *client);
 
-int verify_method(Str *request);
+// Validates if the request method is GET, only GET supported for now
+int validate_method(Str *method);
 
-int verify_path(Str *request);
+int validate_path(Str *request);

@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 
 // Supported request methods enum
-typedef enum { GET } RequestMethod;
+// typedef enum { GET } RequestMethod; // For future use
 
 // Calls all the functions, setting up the server and returns the file
 // descriptor for the server socket, or -1 on error
