@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
@@ -38,17 +39,14 @@ Config parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       exit(EXIT_SUCCESS);
     case 'p':
-      if (validate_port(optarg, &(cfg.port)) < 0) {
-        free_config(&cfg);
+      if (validate_port(optarg, &(cfg.port)) < 0)
         err_n_die("Invalid port number", true);
-      }
       args_parsed++;
       break;
     case 'r':
-      if (validate_root(optarg, &(cfg.root_dir)) < 0) {
-        free_config(&cfg);
+      if (validate_root(optarg) < 0)
         err_n_die("Invalid root directory", true);
-      }
+      cfg.root_dir = STR(optarg);
       args_parsed++;
       break;
     case '?': // If an unknown flag or no argument is passed for an option
@@ -69,11 +67,11 @@ Config parse_args(int argc, char *argv[]) {
   }
 
   // If -r not supplied, then using ./ as root of server
-  if (!cfg.root_dir.data)
-    if (validate_root(DEFAULT_ROOT_DIR, &(cfg.root_dir)) < 0) {
-      free_config(&cfg);
+  if (!cfg.root_dir.data) {
+    if (validate_root(DEFAULT_ROOT_DIR) < 0)
       err_n_die("Setting root directory failed.\n", true);
-    }
+    cfg.root_dir = STR(DEFAULT_ROOT_DIR);
+  }
 
   print_args(args_parsed, &cfg);
 
@@ -108,7 +106,7 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
 
 int validate_port(char *port_arg, char **out) {
   if (!port_arg || !out)
-    return null_ptr();
+    return null_ptr("Invalid port pointer");
 
   char *end;
   // 'optarg' is a global variable set by getopt()
@@ -126,25 +124,18 @@ int validate_port(char *port_arg, char **out) {
   return 0;
 }
 
-int validate_root(const char *root_dir, Str *out) {
-  if (!root_dir || !out)
-    return null_ptr();
+int validate_root(const char *root_dir) {
+  if (!root_dir)
+    return null_ptr("Invalid root pointer");
 
-  // By passing NULL, realpath allocates memory on its own
-  // Owner has to free the memory allocated by realpath
-  out->data = realpath(root_dir, NULL);
-
-  if (!out->data) // realpath sets errno
-    return -1;
-
-  out->len = (ptrdiff_t)strlen(out->data);
-
-  return is_dir(out);
+  // No need to check the path, and directory
+  // Chdir does all that, and makes request handling much simpler later
+  return chdir(root_dir);
 }
 
 int is_dir(const Str *root_dir) {
   if (!root_dir || !root_dir->data)
-    return null_ptr();
+    return null_ptr("Invalid root pointer");
 
   // Metadata for the root
   struct stat root_stat;
@@ -156,23 +147,6 @@ int is_dir(const Str *root_dir) {
 
   errno = ENOTDIR;
   return -1;
-}
-
-void free_config(Config *cfg) {
-  if (!cfg) {
-    errno = EFAULT;
-    err_n_die("Freeing config failed.\n", true);
-  }
-
-  Str *root_S = &(cfg->root_dir);
-
-  if (root_S->data)
-    free(root_S->data);
-
-  root_S->data = NULL;
-  root_S->len = 0;
-
-  return;
 }
 
 void arg_error(char opt, const char *msg) {

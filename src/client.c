@@ -58,9 +58,10 @@ int handle_client(Client *client) {
   // buf can be reused now
   memcpy(client->request.data, buf, total_read);
 
-  if (handle_request(client) < 0)
+  if (handle_request(client) < 0) {
+    free_client(client);
     return err("Handling request", true);
-  print_client(client);
+  }
 
   // continue ahead with response
 
@@ -70,21 +71,6 @@ int handle_client(Client *client) {
   free_client(client);
   return 0;
 }
-
-void print_client(Client *client) {
-  if (!client)
-    return;
-
-  // Even if the client has an ip4 address, the client_address is filled with
-  // a ip6 mapped ip4 address
-  // Therefore, no need for dealing with both here individually
-  char ipstr[INET6_ADDRSTRLEN];
-  inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)(client->address))->sin6_addr),
-            ipstr, sizeof ipstr);
-
-  printf("%s: %.*s", ipstr, (int)client->request.len, client->request.data);
-}
-
 void free_client(Client *client) {
   if (!client)
     return;

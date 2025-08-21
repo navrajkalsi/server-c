@@ -104,7 +104,7 @@ int setup_server(Config *cfg) {
   if (listen(server_fd, BACKLOG) < 0)
     return err("Listening", true);
 
-  printf("Server Listening on port: %s\n", cfg->port);
+  printf("Server Listening on port: %s\n\n", cfg->port);
   return server_fd;
 }
 
@@ -125,7 +125,7 @@ int start_server(int server_fd) {
     struct sockaddr_storage client_address;
     // client_init could be used
     Client client;
-    client.request = (Str){};
+    client.request = STR("");
     client.address_len = sizeof client_address;
     client.address = &client_address;
 

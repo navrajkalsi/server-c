@@ -12,10 +12,10 @@
 typedef struct {
   struct sockaddr_storage *address;
   Str request;
+  Str request_method;
   Str request_path;
   Str response;
   Str reponse_status;
-  // RequestMethod request_method; // if required in future
   int fd;
   socklen_t address_len;
 } Client;
@@ -23,7 +23,5 @@ typedef struct {
 int client_init(Client *out);
 
 int handle_client(Client *client);
-
-void print_client(Client *client);
 
 void free_client(Client *client);

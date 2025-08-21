@@ -10,8 +10,6 @@ int main(int argc, char *argv[]) {
 
   server_fd = setup_server(&config);
 
-  free_config(&config); // No need for this now
-
   if (server_fd == -1) {
     err_n_die("Setting server up failed", true);
   }

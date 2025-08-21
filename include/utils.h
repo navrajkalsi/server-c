@@ -21,6 +21,9 @@ int str_init(Str *out);
 
 void str_free(Str *in);
 
+// strcmp like
+bool equals(Str a, Str b);
+
 // returns Str which points to starting of str but with take len, if possible
 Str takehead(Str str, ptrdiff_t take);
 // since Str args in both are copies, simply could change the str and return

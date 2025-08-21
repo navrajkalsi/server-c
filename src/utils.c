@@ -10,36 +10,31 @@
 #include <stdlib.h>
 #include <string.h>
 
-int str_init(Str *out) {
-  if (out && (out = (Str *)malloc(sizeof(Str))))
-    return 0;
-
-  errno = EFAULT;
-  return -1;
-}
-
 void str_free(Str *in) {
   if (in && in->data) {
     free(in->data);
+    in->data = NULL;
     in->len = 0;
   }
   return;
 }
 
-// returns -1 len in case of error
-Str takehead(Str str, ptrdiff_t take) {
-  if (take > str.len) {
-    str.len = -1;
-    return str;
-  }
+bool equals(Str a, Str b) {
+  return a.len == b.len && !memcmp(a.data, b.data, (size_t)(a.len));
+}
 
-  str.len = take;
+// returns 0 len str in case of error
+Str takehead(Str str, ptrdiff_t take) {
+  if (!str.data || str.len < 0)
+    return ERR_STR;
+
+  str.len = take > str.len ? str.len : take;
   return str;
 }
 
 Str drophead(Str str, ptrdiff_t drop) {
-  if (drop > str.len)
-    return (Str){};
+  if (!str.data || str.len < 0 || drop > str.len)
+    return ERR_STR;
 
   str.data += drop;
   str.len -= drop;
@@ -57,9 +52,6 @@ Cut cut(Str str, char sep) {
   ret.head = takehead(str, pos);
   ret.tail = drophead(str, pos + ret.found);
 
-  if (!(ret.head.data) || !(ret.tail.data))
-    return (Cut){};
-
   return ret;
 }
 
@@ -71,7 +63,7 @@ int err(const char *msg, bool print_errno) {
   if (print_errno && errno)
     perror(msg);
   else
-    fputs(msg, stderr);
+    fprintf(stderr, "%s\n", msg);
   return -1;
 }
 

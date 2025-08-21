@@ -9,6 +9,8 @@
 
 // Utils.c specific
 extern bool RUNNING; // For shutdown handling
+#define ERR_STR (Str){NULL, 0}
+#define STR(str) (Str){str, sizeof(str) - 1}
 
 // Client.c specific
 #define BUF_MAX 8192
