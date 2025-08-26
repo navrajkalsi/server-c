@@ -11,7 +11,7 @@
 #include <string.h>
 
 void str_free(Str *in) {
-  if (in && in->data) {
+  if (in && in->data && in->len) {
     free(in->data);
     in->data = NULL;
     in->len = 0;
@@ -19,8 +19,8 @@ void str_free(Str *in) {
   return;
 }
 
-bool equals(Str a, Str b) {
-  return a.len == b.len && !memcmp(a.data, b.data, (size_t)(a.len));
+bool equals(Str *a, Str *b) {
+  return a->len == b->len && !memcmp(a->data, b->data, (size_t)(a->len));
 }
 
 // returns 0 len str in case of error
@@ -53,6 +53,19 @@ Cut cut(Str str, char sep) {
   ret.tail = drophead(str, pos + ret.found);
 
   return ret;
+}
+
+Str join(Str a, Str b) {
+  if (!a.data || !b.data || a.len < 0 || b.len < 0)
+    return ERR_STR;
+
+  char joined[a.len + b.len + 1];
+
+  memcpy(joined, a.data, (size_t)a.len);
+  memcpy(joined + a.len, b.data, (size_t)b.len);
+  joined[a.len + b.len] = '\0';
+
+  return STR(joined);
 }
 
 int err(const char *msg, bool print_errno) {
@@ -98,4 +111,15 @@ void handle_shutdown(int sig) {
 int null_ptr(const char *msg) {
   errno = EFAULT;
   return err(msg, true);
+}
+
+void print_banner(void) {
+  puts("\n\n");
+  puts("  ███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗        ██████╗");
+  puts("  ██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗      ██╔════╝");
+  puts("  ███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝█████╗██║     ");
+  puts("  ╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════╝██║     ");
+  puts("  ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║      ╚██████╗");
+  puts("  ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝       ╚═════╝");
+  puts("\n\n");
 }

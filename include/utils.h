@@ -22,7 +22,7 @@ int str_init(Str *out);
 void str_free(Str *in);
 
 // strcmp like
-bool equals(Str a, Str b);
+bool equals(Str *a, Str *b);
 
 // returns Str which points to starting of str but with take len, if possible
 Str takehead(Str str, ptrdiff_t take);
@@ -34,6 +34,9 @@ Str drophead(Str str, ptrdiff_t drop);
 // The head and tail are just pointers to the org str with different lengths and
 // starting values
 Cut cut(Str str, char sep);
+
+// returns Str after combining two Strs
+Str join(Str a, Str b);
 
 // Always returns -1
 int err(const char *msg, bool print_errno);
@@ -48,3 +51,5 @@ void handle_shutdown(int sig);
 // Always sets errno to EFAULT & returns -1
 // to be returned it null ptrs are passed to a func
 int null_ptr(const char *msg);
+
+void print_banner(void);

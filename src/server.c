@@ -146,13 +146,16 @@ int start_server(int server_fd) {
     if ((status = handle_client(&client)) < 0)
       err("Handling client", true);
 
+    free_client(&client);
+
     if (close(client.fd) < 0) {
       err("Closing client", true);
       break;
     }
 
-    if (status < 0)
+    if (status < 0) {
       break;
+    }
   }
 
   if (close(server_fd) < 0)

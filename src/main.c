@@ -4,6 +4,8 @@
 bool RUNNING = true;
 
 int main(int argc, char *argv[]) {
+  print_banner();
+
   int server_fd;
 
   Config config = parse_args(argc, argv);

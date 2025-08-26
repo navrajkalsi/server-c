@@ -1,5 +1,6 @@
 #include "../include/client.h"
 #include "../include/request.h"
+#include "../include/response.h"
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
 #include <asm-generic/errno.h>
@@ -51,31 +52,51 @@ int handle_client(Client *client) {
   }
 
   // At this point total_read is the correct len of str
-  if (!(client->request.data = (char *)malloc(total_read)))
-    return err("Request malloc", true);
-  client->request.len = (ptrdiff_t)total_read;
-
+  client->request = STR(buf);
   // buf can be reused now
-  memcpy(client->request.data, buf, total_read);
 
-  if (handle_request(client) < 0) {
-    free_client(client);
+  // Handle request sets the required response codes
+  if (handle_request(client) < 0)
     return err("Handling request", true);
-  }
 
-  // continue ahead with response
+  if (handle_response(client) < 0)
+    return err("Handling response", true);
 
-  char *res = "hello world.";
-  write(client->fd, res, strlen(res));
-
-  free_client(client);
   return 0;
 }
+
+void print_client(Client *client) {
+  if (!client)
+    return;
+
+  if (client->request.len)
+    printf("Request: %.*s\n", (int)client->request.len, client->request.data);
+  if (client->request_method.len)
+    printf("Request Method: %.*s\n", (int)client->request_method.len,
+           client->request_method.data);
+  if (client->request_path.len)
+    printf("Request Path: %.*s\n", (int)client->request_path.len,
+           client->request_path.data);
+  if (client->http_ver.len)
+    printf("Request HTTP version: %.*s\n", (int)client->http_ver.len,
+           client->http_ver.data);
+  if (client->response_status.len)
+    printf("Response Status: %.*s\n", (int)client->response_status.len,
+           client->response_status.data);
+  printf("Request Static: %s\n",
+         client->request_static ? "Static" : "User request");
+}
+
 void free_client(Client *client) {
   if (!client)
     return;
 
-  // No need to free sockaddr_storage, is in server.c
+  if (client->dynamic_response_body.len)
+    str_free(&client->dynamic_response_body);
 
-  str_free(&(client->request));
-};
+  // both response bodies would be malloced at some point if they exist
+  if (client->static_response_body.len)
+    str_free(&client->static_response_body);
+
+  return;
+}

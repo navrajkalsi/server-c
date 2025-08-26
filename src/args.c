@@ -1,7 +1,6 @@
 #include "../include/args.h"
 #include "../include/utils.h"
 #include <asm-generic/errno-base.h>
-#include <bits/getopt_core.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -10,7 +9,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -128,8 +126,9 @@ int validate_root(const char *root_dir) {
   if (!root_dir)
     return null_ptr("Invalid root pointer");
 
-  // No need to check the path, and directory
-  // Chdir does all that, and makes request handling much simpler later
+  // No need to check the path, if it points to a dir or if it exists and
+  // permissions Chdir does all that, and makes request handling much simpler
+  // later
   return chdir(root_dir);
 }
 
