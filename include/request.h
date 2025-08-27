@@ -4,19 +4,19 @@
 #include <stddef.h>
 
 // Also used in response.c
+typedef enum { ICO, HTML, JS, ERR, LEN } STATIC_INDICES;
 extern const char *STATIC_FILES[];
 extern const Str STATIC_PATHS[];
-extern const size_t STATIC_COUNT;
 
-int handle_request(Client *client);
+bool handle_request(Client *client);
 
 // Validates if the request method is GET, only GET supported for now
-int validate_method(Str *method);
+bool validate_method(Str *method);
 
-int validate_path(Str *path, bool *is_static);
+bool validate_path(Str *path, bool *is_static);
 
 // null termianted path pointer
-int path_exists(const char *path);
+bool path_exists(const char *path);
 
 void print_request(Client *client);
 

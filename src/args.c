@@ -37,12 +37,12 @@ Config parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       exit(EXIT_SUCCESS);
     case 'p':
-      if (validate_port(optarg, &(cfg.port)) < 0)
+      if (!validate_port(optarg, &(cfg.port)))
         err_n_die("Invalid port number", true);
       args_parsed++;
       break;
     case 'r':
-      if (validate_root(optarg) < 0)
+      if (!validate_root(optarg))
         err_n_die("Invalid root directory", true);
       cfg.root_dir = STR(optarg);
       args_parsed++;
@@ -66,7 +66,7 @@ Config parse_args(int argc, char *argv[]) {
 
   // If -r not supplied, then using ./ as root of server
   if (!cfg.root_dir.data) {
-    if (validate_root(DEFAULT_ROOT_DIR) < 0)
+    if (!validate_root(DEFAULT_ROOT_DIR))
       err_n_die("Setting root directory failed.\n", true);
     cfg.root_dir = STR(DEFAULT_ROOT_DIR);
   }
@@ -102,7 +102,7 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
       : puts("Server Accepting Incoming Connections from Localhost Only.\n");
 }
 
-int validate_port(char *port_arg, char **out) {
+bool validate_port(char *port_arg, char **out) {
   if (!port_arg || !out)
     return null_ptr("Invalid port pointer");
 
@@ -111,25 +111,25 @@ int validate_port(char *port_arg, char **out) {
   const long port = strtol(port_arg, &end, 10);
   if (*end != '\0') {
     errno = EINVAL; // not a valid number
-    return -1;
+    return false;
   }
   if (port < 0 || port > 65535) {
     errno = ERANGE; // out of range
-    return -1;
+    return false;
   }
 
   *out = port_arg;
-  return 0;
+  return true;
 }
 
-int validate_root(const char *root_dir) {
+bool validate_root(const char *root_dir) {
   if (!root_dir)
     return null_ptr("Invalid root pointer");
 
   // No need to check the path, if it points to a dir or if it exists and
   // permissions Chdir does all that, and makes request handling much simpler
   // later
-  return chdir(root_dir);
+  return chdir(root_dir) == 0;
 }
 
 int is_dir(const Str *root_dir) {

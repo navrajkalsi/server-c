@@ -24,6 +24,7 @@ typedef struct {
   // in addition to the dir contents)
   Str static_response_body;
   Str response_status;
+  Str response_mime;
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;
@@ -31,9 +32,7 @@ typedef struct {
   bool request_static;
 } Client;
 
-int client_init(Client *out);
-
-int handle_client(Client *client);
+bool handle_client(Client *client);
 
 // useful in debugging
 void print_client(Client *client);

@@ -12,25 +12,27 @@
 #include <string.h>
 #include <unistd.h>
 
-int handle_client(Client *client) {
+bool handle_client(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
-  // Temporary buffer to be used for data storage for unknown length types
+  // buffer to be used for data storage for unknown length types
+  // client.request then points to this buffer
   // no need for void, only gonna use chars
   char buf[BUF_MAX], *buf_ptr = buf;
   size_t total_read = 0;
   long read_status = 0;
-  const char *request_end = "\r\n\r\n";
   char *end_ptr;
 
+  // Only headers are considered, cause I currently support GET only, anything
+  // after TRAILER is disregarded
   while ((read_status = read(client->fd, buf_ptr, BUF_MAX - total_read - 1)) >
          0) {
     total_read += (size_t)read_status;
     buf_ptr = &buf[total_read];
     buf[total_read] = '\0';
 
-    if ((end_ptr = strstr(buf, request_end)))
+    if ((end_ptr = strstr(buf, TRAILER.data)))
       // No need to read more
       break;
   }
@@ -39,9 +41,9 @@ int handle_client(Client *client) {
     // Advancing the ptr by 4 chars to get past the request end
     // Then comparing with buf_ptr to see if they are same
     // If same that means there is no body after headers and the total_read is
-    // the correct length else change total_read to the length of only the
+    // the correct length, else change total_read to the length of only the
     // request headers
-    end_ptr = &(end_ptr[strlen(request_end)]);
+    end_ptr = &(end_ptr[TRAILER.len]);
     if (end_ptr != buf_ptr)
       // Discard if there is any body in the request
       // Only supporting GET requests for now
@@ -51,18 +53,19 @@ int handle_client(Client *client) {
     return err("Reading request", true);
   }
 
-  // At this point total_read is the correct len of str
-  client->request = STR(buf);
-  // buf can be reused now
+  // At this point total_read is the correct len of data in buf
+  // request can only be used in this scope!!
+  client->request.data = buf;
+  client->request.len = (ptrdiff_t)total_read;
 
   // Handle request sets the required response codes
-  if (handle_request(client) < 0)
+  if (!handle_request(client))
     return err("Handling request", true);
 
-  if (handle_response(client) < 0)
+  if (!handle_response(client))
     return err("Handling response", true);
 
-  return 0;
+  return true;
 }
 
 void print_client(Client *client) {
@@ -97,6 +100,9 @@ void free_client(Client *client) {
   // both response bodies would be malloced at some point if they exist
   if (client->static_response_body.len)
     str_free(&client->static_response_body);
+
+  if (client->response_mime.len)
+    str_free(&client->response_mime);
 
   return;
 }

@@ -8,9 +8,9 @@
 // Supported request methods enum
 // typedef enum { GET } RequestMethod; // For future use
 
-// Calls all the functions, setting up the server and returns the file
-// descriptor for the server socket, or -1 on error
-int setup_server(Config *cfg);
+// Calls all the functions, setting up the server and sets the file
+// descriptor for the server socket
+bool setup_server(Config *cfg, int *server_fd);
 
 // The actual loop accepting connections
-int start_server(int server_fd);
+bool start_server(const int server_fd);

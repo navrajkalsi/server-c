@@ -17,12 +17,10 @@ typedef struct {
   bool found;
 } Cut;
 
-int str_init(Str *out);
-
 void str_free(Str *in);
 
 // strcmp like
-bool equals(Str *a, Str *b);
+bool equals(const Str *a, const Str *b);
 
 // returns Str which points to starting of str but with take len, if possible
 Str takehead(Str str, ptrdiff_t take);
@@ -39,17 +37,17 @@ Cut cut(Str str, char sep);
 Str join(Str a, Str b);
 
 // Always returns -1
-int err(const char *msg, bool print_errno);
+bool err(const char *msg, bool print_errno);
 
 // Same as err just exits after printing
 void err_n_die(const char *msg, bool print_errno);
 
-int setup_sig_handler(void);
+bool setup_sig_handler(void);
 
 void handle_shutdown(int sig);
 
 // Always sets errno to EFAULT & returns -1
 // to be returned it null ptrs are passed to a func
-int null_ptr(const char *msg);
+bool null_ptr(const char *msg);
 
 void print_banner(void);

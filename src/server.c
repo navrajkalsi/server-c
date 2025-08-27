@@ -12,11 +12,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int setup_server(Config *cfg) {
+bool setup_server(Config *cfg, int *server_fd) {
   if (!cfg)
     return null_ptr("Invalid config pointer");
 
-  int server_fd;
   struct addrinfo hints, *out, *current;
 
   memset(&hints, 0, sizeof hints);
@@ -36,7 +35,7 @@ int setup_server(Config *cfg) {
       fputs(gai_strerror(getaddr_status), stderr);
     else
       err("Getting host info", true);
-    return -1;
+    return false;
   }
 
   current = out;
@@ -50,28 +49,28 @@ int setup_server(Config *cfg) {
     // 2. Socket type (stream or datagram, mainly)
     // 3. Protocol family (0: OS chooses the appropriate one, TCP for stream
     // sockets & UDP for datagram sockets)
-    if ((server_fd = socket(current->ai_family, current->ai_socktype,
-                            current->ai_protocol)) < 0)
+    if ((*server_fd = socket(current->ai_family, current->ai_socktype,
+                             current->ai_protocol)) < 0)
       continue;
 
     // Have to setsocketopt to allow dual-stack setup supporting both IPv4 & v6
-    if (setsockopt(server_fd, IPPROTO_IPV6, IPV6_V6ONLY, &(int){0},
+    if (setsockopt(*server_fd, IPPROTO_IPV6, IPV6_V6ONLY, &(int){0},
                    sizeof(int)) < 0) {
-      close(server_fd);
-      server_fd = -1;
+      close(*server_fd);
+      *server_fd = -1;
       continue;
     }
 
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1},
+    if (setsockopt(*server_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1},
                    sizeof(int)) < 0) {
-      close(server_fd);
-      server_fd = -1;
+      close(*server_fd);
+      *server_fd = -1;
       continue;
     }
 
-    if (bind(server_fd, current->ai_addr, current->ai_addrlen) < 0) {
-      close(server_fd);
-      server_fd = -1;
+    if (bind(*server_fd, current->ai_addr, current->ai_addrlen) < 0) {
+      close(*server_fd);
+      *server_fd = -1;
       continue;
     }
 
@@ -97,18 +96,18 @@ int setup_server(Config *cfg) {
 
   freeaddrinfo(out);
 
-  if (server_fd == -1) {
-    errno = (server_fd == -1) ? ECONNABORTED : errno;
+  if (*server_fd == -1) {
+    errno = ECONNABORTED;
     return err("Getting server file descriptor", true);
   }
-  if (listen(server_fd, BACKLOG) < 0)
+  if (listen(*server_fd, BACKLOG) < 0)
     return err("Listening", true);
 
   printf("Server Listening on port: %s\n\n", cfg->port);
-  return server_fd;
+  return true;
 }
 
-int start_server(int server_fd) {
+bool start_server(const int server_fd) {
   if (server_fd < 0)
     return null_ptr("Invalid server descriptor"); // null erroring for now
 
@@ -142,8 +141,8 @@ int start_server(int server_fd) {
       break;
     }
 
-    int status;
-    if ((status = handle_client(&client)) < 0)
+    bool status;
+    if (!(status = handle_client(&client)))
       err("Handling client", true);
 
     free_client(&client);
@@ -153,7 +152,7 @@ int start_server(int server_fd) {
       break;
     }
 
-    if (status < 0) {
+    if (!status) {
       break;
     }
   }
@@ -171,5 +170,5 @@ int start_server(int server_fd) {
   else
     puts("\b\bShutting Down...\n");
 
-  return 0;
-};
+  return true;
+}

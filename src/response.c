@@ -2,6 +2,7 @@
 #include "../include/request.h"
 #include <dirent.h>
 #include <errno.h>
+#include <magic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,15 +12,16 @@
 #include <unistd.h>
 
 // Response bodies are the only malloced vars in this whole program
+// response_mime_type is also to be freed
 
-int handle_response(Client *client) {
+bool handle_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
   print_client(client);
-  // Setting both response structs to null
-  client->dynamic_response_body = ERR_STR;
-  client->static_response_body = ERR_STR;
+  // Setting both response and mime structs to null
+  client->dynamic_response_body = client->static_response_body =
+      client->response_mime = ERR_STR;
 
   // If response code not set, something is not right
   if (!client->response_status.data || !client->response_status.len)
@@ -27,16 +29,16 @@ int handle_response(Client *client) {
 
   // If response is not OK, then print the error message on client side
   if (equals(&client->response_status, &STR("200 OK")))
-    if (generate_response(client) < 0)
+    if (!generate_response(client))
       return err("Generating response", true);
 
-  if (write_response(client) < 0)
+  if (!write_response(client))
     return err("Writing response", true);
 
-  return 0;
+  return true;
 }
 
-int write_response(Client *client) {
+bool write_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -55,32 +57,43 @@ int write_response(Client *client) {
 
     printf("len: %.*s\n", (int)content_length.len, content_length.data);
 
-    Str *static_array[] = {&client->http_ver,
-                           &SPACE,
-                           &client->response_status,
-                           &LINEBREAK,
-                           &LINEBREAK,
-                           &before_delimiter,
-                           &client->dynamic_response_body,
-                           &after_delimiter,
-                           &TRAILER};
+    Str *static_array[] = {
+        &client->http_ver,
+        &SPACE,
+        &client->response_status,
+        &STR("\r\nContent-Type: "),
+        &client->response_mime,
+        &STR("\r\nConnection: Close\r\nAccess-Control-Allow-Origin: "
+             "*\r\nAccess-Control-Expose-Headers: Content-Type\r\n\r\n"),
+        &before_delimiter,
+        &client->dynamic_response_body,
+        &after_delimiter,
+        &TRAILER};
+
     for (u_long i = 0; i < (sizeof static_array / sizeof(Str *)); i++)
-      if (write_str(client, static_array[i]) < 0)
+      if (!write_str(client, static_array[i]))
         return err("Writing response", true);
   } else {
     Str *dynamic_array[] = {
-        &client->http_ver, &SPACE,     &client->response_status,
-        &LINEBREAK,        &LINEBREAK, &client->dynamic_response_body,
+        &client->http_ver,
+        &SPACE,
+        &client->response_status,
+        &STR("\r\nContent-Type: "),
+        &client->response_mime,
+        &STR("\r\nConnection: Close\r\nAccess-Control-Allow-Origin: "
+             "*\r\nAccess-Control-Expose-Headers: Content-Type\r\n\r\n"),
+        &client->dynamic_response_body,
         &TRAILER};
+
     for (u_long i = 0; i < (sizeof dynamic_array / sizeof(Str *)); i++)
-      if (write_str(client, dynamic_array[i]) < 0)
+      if (!write_str(client, dynamic_array[i]))
         return err("Writing response", true);
   }
 
-  return 0;
+  return true;
 }
 
-int write_str(Client *client, Str *str) {
+bool write_str(Client *client, Str *str) {
   if (!client || !str)
     return null_ptr("Null Str pointer");
 
@@ -94,10 +107,10 @@ int write_str(Client *client, Str *str) {
     current += wrote;
   }
 
-  return 0;
+  return true;
 }
 
-int generate_response(Client *client) {
+bool generate_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -117,11 +130,11 @@ int generate_response(Client *client) {
     return err("Accessing file/directory", true);
   }
 
-  return 0;
+  return true;
 }
 
 // Deals with every user requested file
-int read_dynamic_file(Client *client) {
+bool read_dynamic_file(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -148,12 +161,23 @@ int read_dynamic_file(Client *client) {
 
   fclose(file);
 
-  return 0;
+  // Libmagic sets MIME of .js files to text/plain
+  // In order for scripts to work the mime should be application/javascript
+  // Dealing with _server.js only here
+  if (equals(&client->request_path, &STATIC_PATHS[JS])) {
+    client->response_mime.data = strdup("application/javascript");
+    client->response_mime.len = (ptrdiff_t)strlen(client->response_mime.data);
+  } else {
+    if (!get_mime_type(client, NULL))
+      return err("Getting MIME", true);
+  }
+
+  return true;
 }
 
 // Deals with every user requested directory and calls read_static_file cause
 // contents of SERVER_HTML are required to render the directory contents
-int read_directory(Client *client) {
+bool read_directory(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -179,37 +203,36 @@ int read_directory(Client *client) {
 
     rewinddir(dir);
 
+    u_long pos = 0;
     // Actually reading dirs
     while ((dir_entry = readdir(dir))) {
-      u_long pos = 0;
       size_t dir_len = strlen(dir_entry->d_name);
       // skipping current and previous dir entries
+      puts(dir_entry->d_name);
       if (memcmp(dir_entry->d_name, "..", 2) != 0 &&
           memcmp(dir_entry->d_name, ".", 1) != 0 &&
           pos + dir_len < (u_long)body->len) {
         memcpy(body->data + pos, dir_entry->d_name, dir_len);
         memcpy(body->data + pos + dir_len, "\n", 1);
-        pos += dir_len;
+        pos += dir_len + 1;
       }
     }
-
     closedir(dir);
   } else
     return err("Opening directory", true);
 
-  for (size_t i = 0; i < STATIC_COUNT; ++i)
-    if (strcmp(STATIC_FILES[i], SERVER_HTML) == 0)
-      if (read_static_file(client, STATIC_PATHS[i].data) < 0 ||
-          find_delimiter(client) < 0)
-        return err("Handling static file", false);
+  if (!read_static_file(client, STATIC_PATHS[HTML].data) ||
+      !find_delimiter(client))
+    return err("Handling static file", false);
 
-  return 0;
+  printf("dy: %.*s\n", (int)body->len, body->data);
+  return true;
 }
 
 // Only to be called by read_directory and for now is just meant to read
 // SERVER_HTML, but could read more files from the STATC_DIR if needed
 // Reads into the static_response_body
-int read_static_file(Client *client, const char *filepath) {
+bool read_static_file(Client *client, const char *filepath) {
   if (!client || !filepath)
     return null_ptr("Invalid client or file pointer");
 
@@ -241,30 +264,55 @@ int read_static_file(Client *client, const char *filepath) {
 
   fclose(file);
 
-  return 0;
+  if (!get_mime_type(client, filepath))
+    return err("Getting MIME", true);
+
+  return true;
 }
 
-void print_response(Client *client) {
-
-  // Str response_array[7] = {
-  //     client->http_ver, SPACE,     client->response_status,
-  //     LINEBREAK,        LINEBREAK, client->dynamic_response_body,
-  //     TRAILER};
-  Str *response_array[] = {&client->dynamic_response_body, &TRAILER};
-
-  for (u_long i = 0; i < 2; i++)
-    printf("%.*s", (int)response_array[i]->len, response_array[i]->data);
-  return;
+void print_response(Str *response_array[], int array_len) {
+  for (int i = 0; i < array_len; i++)
+    printf("%.*s\n", (int)response_array[i]->len, response_array[i]->data);
 }
 
-int find_delimiter(Client *client) {
+bool find_delimiter(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
   for (ptrdiff_t i = 0; i < client->static_response_body.len; i++)
     if (memcmp(client->static_response_body.data + i, HTTP_DELIMITER, 1) == 0) {
       client->static_delimiter = i;
-      return 0;
+      return true;
     }
   return err("Delimiter not found", false);
+}
+
+bool get_mime_type(Client *client, const char *path) {
+  if (!client)
+    return null_ptr("Invalid client pointer");
+
+  magic_t magic;
+
+  if (!(magic = magic_open(MAGIC_MIME_TYPE)))
+    return err("Magic open", true);
+
+  if (magic_load(magic, NULL) != 0) {
+    magic_close(magic);
+    return err("Magic load", false);
+  }
+
+  char *mime;
+  if (path)
+    mime = strdup(magic_file(magic, path));
+  else
+    mime = strdup(magic_file(magic, client->request_path.data));
+
+  magic_close(magic);
+
+  if (mime) {
+    client->response_mime.data = mime;
+    client->response_mime.len = (ptrdiff_t)strlen(mime);
+    return true;
+  } else
+    return err("Magic file", false);
 }

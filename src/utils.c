@@ -19,7 +19,7 @@ void str_free(Str *in) {
   return;
 }
 
-bool equals(Str *a, Str *b) {
+bool equals(const Str *a, const Str *b) {
   return a->len == b->len && !memcmp(a->data, b->data, (size_t)(a->len));
 }
 
@@ -68,7 +68,7 @@ Str join(Str a, Str b) {
   return STR(joined);
 }
 
-int err(const char *msg, bool print_errno) {
+bool err(const char *msg, bool print_errno) {
   // fputs(msg, stderr);
   // if (print_errno && errno)
   //   fprintf(stderr, "Error: {\n\tCode: %d\n\tMessage: %s\n}\n", errno,
@@ -77,7 +77,7 @@ int err(const char *msg, bool print_errno) {
     perror(msg);
   else
     fprintf(stderr, "%s\n", msg);
-  return -1;
+  return false;
 }
 
 void err_n_die(const char *msg, bool print_errno) {
@@ -85,7 +85,7 @@ void err_n_die(const char *msg, bool print_errno) {
   exit(EXIT_FAILURE);
 }
 
-int setup_sig_handler(void) {
+bool setup_sig_handler(void) {
   // Handling shutdown
   struct sigaction sa_shutdown;
   sa_shutdown.sa_handler = handle_shutdown;
@@ -97,9 +97,9 @@ int setup_sig_handler(void) {
   // terminal with kill command
   if (sigaction(SIGINT, &sa_shutdown, NULL) == -1 ||
       sigaction(SIGTERM, &sa_shutdown, NULL) == -1)
-    return -1;
+    return false;
 
-  return 0;
+  return true;
 }
 
 void handle_shutdown(int sig) {
@@ -108,7 +108,7 @@ void handle_shutdown(int sig) {
   return;
 }
 
-int null_ptr(const char *msg) {
+bool null_ptr(const char *msg) {
   errno = EFAULT;
   return err(msg, true);
 }

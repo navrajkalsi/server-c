@@ -10,7 +10,6 @@
 
 // Array of filepaths to be served statically
 const char *STATIC_FILES[] = {ICON_ICO, SERVER_HTML, SERVER_JS, ERROR_HTML};
-const size_t STATIC_COUNT = sizeof STATIC_FILES / sizeof STATIC_FILES[0];
 
 // Arrays of absolute paths of each file
 // HAVE TO MAINTAIN BOTH arrays in the future
@@ -20,7 +19,7 @@ const Str STATIC_PATHS[] = {
     STR(STATIC_PATH(ICON_ICO)), STR(STATIC_PATH(SERVER_HTML)),
     STR(STATIC_PATH(SERVER_JS)), STR(STATIC_PATH(ERROR_HTML))};
 
-int handle_request(Client *client) {
+bool handle_request(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -42,7 +41,7 @@ int handle_request(Client *client) {
   print_request(client);
 
   if (!(client->request_path.data) ||
-      validate_path(&(client->request_path), &(client->request_static)) != 0) {
+      !validate_path(&(client->request_path), &(client->request_static))) {
     if (errno == ENOENT)
       client->response_status = STR("404 Not Found");
     else if (errno == EACCES)
@@ -57,22 +56,19 @@ int handle_request(Client *client) {
   // have to split with newline now
   client->http_ver = cut(c.tail, '\n').head;
 
-  return 0;
+  return true;
 }
 
-int validate_method(Str *method) {
+bool validate_method(Str *method) {
   if (!method || !(method->data))
     return null_ptr("Invalid method pointer");
 
   // Just checking for GET
-  if (equals(method, &(STR("GET"))))
-    return 1;
-
-  return 0;
+  return equals(method, &(STR("GET")));
 }
 
 // Does depth checking, thanks to: skeeto, again
-int validate_path(Str *path, bool *is_static) {
+bool validate_path(Str *path, bool *is_static) {
   if (!path || !(path->data))
     return null_ptr("Invalid path pointer");
 
@@ -109,6 +105,11 @@ int validate_path(Str *path, bool *is_static) {
     path->data[i] = path->data[i + 1];
   path->data[path->len - 1] = '\0';
 
+  // if the path is null after shifting and len was one, that means current
+  // directory is requested and request path was '/'
+  if (*(path->data) == '\0' && path->len == 1)
+    *path = STR("./");
+
   // now comparing against the static filepaths
   // this also sets the path to the final ABSOLUTE path of the file
   *is_static = check_static(path);
@@ -119,9 +120,9 @@ int validate_path(Str *path, bool *is_static) {
   return path_exists(path->data);
 }
 
-int path_exists(const char *path) {
+bool path_exists(const char *path) {
   struct stat s;
-  return stat(path, &s);
+  return stat(path, &s) == 0;
 }
 
 void print_request(Client *client) {
@@ -149,7 +150,7 @@ bool check_static(Str *path) {
   if (!path)
     return false;
 
-  for (u_long i = 0; i < STATIC_COUNT; i++)
+  for (u_long i = 0; i < LEN; i++)
     if (!strcmp(path->data, STATIC_FILES[i])) {
       // Tried concatenating here, but did not work cause i need string literals
       *path = STATIC_PATHS[i];

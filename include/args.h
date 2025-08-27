@@ -23,11 +23,11 @@ void print_usage(char *prg);
 void print_args(unsigned int args_parsed, const Config *cfg);
 
 // Validates port from optarg, exits on error, points out to port
-int validate_port(char *port, char **out);
+bool validate_port(char *port, char **out);
 
 // Validates root_dir, exits on error, by calling chdir which handles
 // permission, errno. Much better than realpath()
-int validate_root(const char *root_dir);
+bool validate_root(const char *root_dir);
 
 // Prints error for individual args
 void arg_error(char opt, const char *msg);

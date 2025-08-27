@@ -6,17 +6,13 @@ bool RUNNING = true;
 int main(int argc, char *argv[]) {
   print_banner();
 
-  int server_fd;
-
   Config config = parse_args(argc, argv);
 
-  server_fd = setup_server(&config);
-
-  if (server_fd == -1) {
+  int server_fd;
+  if (!setup_server(&config, &server_fd))
     err_n_die("Setting server up failed", true);
-  }
 
-  if (start_server(server_fd) == -1)
+  if (!start_server(server_fd))
     err_n_die("Server failed", true);
 
   return 0;
