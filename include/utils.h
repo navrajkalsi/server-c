@@ -36,7 +36,7 @@ Cut cut(Str str, char sep);
 // returns Str after combining two Strs
 Str join(Str a, Str b);
 
-// Always returns -1
+// Always returns false
 bool err(const char *msg, bool print_errno);
 
 // Same as err just exits after printing
@@ -46,8 +46,14 @@ bool setup_sig_handler(void);
 
 void handle_shutdown(int sig);
 
-// Always sets errno to EFAULT & returns -1
+// Always sets errno to EFAULT & returns false
 // to be returned it null ptrs are passed to a func
 bool null_ptr(const char *msg);
 
 void print_banner(void);
+
+// Converts an int to a malloced, null terminated Str
+// The user has to call free on the out string
+// I am really proud of this function, as this is my first recursive function
+// that I conceived in my brain and made to work
+bool int_to_string(int i, Str *out);

@@ -25,6 +25,7 @@ typedef struct {
   Str static_response_body;
   Str response_status;
   Str response_mime;
+  Str response_body_len;      // to be used as content-length header
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;

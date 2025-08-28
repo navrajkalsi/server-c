@@ -123,3 +123,27 @@ void print_banner(void) {
   puts("  ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝       ╚═════╝");
   puts("\n\n");
 }
+
+bool int_to_string(int i, Str *out) {
+  static ptrdiff_t pos =
+      0; // the chars have to be written from the beginning, therefore this
+         // would serve as the index where the char would go
+
+  // set to ERR_STR before passing it in
+  // base case, when last single int is divided by 10, 0 is returned
+  if (i == 0) {
+    if (!(out->data = (char *)malloc((size_t)out->len)))
+      return err("Malloc string data", true);
+    return true;
+  }
+
+  out->len++;
+  if (!int_to_string(i / 10, out))
+    return err("Converting int to string recursive", false);
+  *(out->data + pos++) = (char)((i % 10) + '0');
+
+  // Setting pos to 0 to reuse later
+  if (pos == out->len)
+    pos = 0;
+  return true;
+}

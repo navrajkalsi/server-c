@@ -168,7 +168,7 @@ bool start_server(const int server_fd) {
   if (RUNNING)
     return err("Server terminated", true);
   else
-    puts("\b\bShutting Down...\n");
+    puts("\nShutting Down...\n");
 
   return true;
 }

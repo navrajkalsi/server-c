@@ -104,5 +104,8 @@ void free_client(Client *client) {
   if (client->response_mime.len)
     str_free(&client->response_mime);
 
+  if (client->response_body_len.len)
+    str_free(&client->response_body_len);
+
   return;
 }
