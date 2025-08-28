@@ -68,7 +68,7 @@ bool handle_client(Client *client) {
   return true;
 }
 
-void print_client(Client *client) {
+void print_client(const Client *client) {
   if (!client)
     return;
 

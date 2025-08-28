@@ -6,13 +6,13 @@ bool handle_response(Client *client);
 
 bool write_response(Client *client);
 
-bool write_headers(Client *client);
+bool write_headers(const Client *client);
 
-bool write_response_body(Client *client);
+bool write_response_body(const Client *client);
 
 bool write_error(Client *client);
 
-bool write_str(Client *client, const Str *str);
+bool write_str(const Client *client, const Str *str);
 
 // opens file/dir requested and reads it into client.response
 bool generate_response(Client *client);
@@ -27,7 +27,7 @@ bool read_static_file(Client *client, const char *filepath);
 
 bool read_directory(Client *client);
 
-void print_response(Str *response_array[], int array_len);
+void print_response(const Str *response_array[], int array_len);
 
 bool find_delimiter(Client *client);
 

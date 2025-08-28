@@ -36,7 +36,7 @@ typedef struct {
 bool handle_client(Client *client);
 
 // useful in debugging
-void print_client(Client *client);
+void print_client(const Client *client);
 
 // just checks and frees the response bodies, as they are the only malloced vars
 void free_client(Client *client);

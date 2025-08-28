@@ -54,7 +54,7 @@ bool write_response(Client *client) {
   return true;
 }
 
-bool write_str(Client *client, const Str *str) {
+bool write_str(const Client *client, const Str *str) {
   if (!client || !str)
     return null_ptr("Null Str pointer");
 
@@ -71,7 +71,7 @@ bool write_str(Client *client, const Str *str) {
   return true;
 }
 
-bool write_headers(Client *client) {
+bool write_headers(const Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -85,6 +85,7 @@ bool write_headers(Client *client) {
       &client->response_body_len,
       &STR("\r\nConnection: Close\r\nAccess-Control-Allow-Origin: "
            "*\r\nAccess-Control-Expose-Headers: Content-Type\r\n\r\n"),
+      // Exposing Content-Type to make previewing easier in JS later
   };
 
   for (u_long i = 0; i < (sizeof headers / sizeof(Str *)); i++)
@@ -94,18 +95,18 @@ bool write_headers(Client *client) {
   return true;
 }
 
-bool write_response_body(Client *client) {
+bool write_response_body(const Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
   // Serving SERVER_HTML with file listings
-  if (client->static_response_body.len && client->static_delimiter++) {
+  if (client->static_response_body.len && client->static_delimiter) {
     Str before_delimiter, after_delimiter;
     before_delimiter = after_delimiter = client->static_response_body;
 
-    before_delimiter.len = client->static_delimiter - 1;
-    after_delimiter.data += client->static_delimiter;
-    after_delimiter.len -= client->static_delimiter;
+    before_delimiter.len = client->static_delimiter;
+    after_delimiter.data += client->static_delimiter + 1;
+    after_delimiter.len -= client->static_delimiter + 1;
 
     const Str *static_array[] = {&before_delimiter,
                                  &client->dynamic_response_body,
@@ -282,7 +283,7 @@ bool read_static_file(Client *client, const char *filepath) {
   return true;
 }
 
-void print_response(Str *response_array[], int array_len) {
+void print_response(const Str *response_array[], int array_len) {
   for (int i = 0; i < array_len; i++)
     printf("%.*s\n", (int)response_array[i]->len, response_array[i]->data);
 }

@@ -59,7 +59,7 @@ bool handle_request(Client *client) {
   return true;
 }
 
-bool validate_method(Str *method) {
+bool validate_method(const Str *method) {
   if (!method || !(method->data))
     return null_ptr("Invalid method pointer");
 
@@ -125,7 +125,7 @@ bool path_exists(const char *path) {
   return stat(path, &s) == 0;
 }
 
-void print_request(Client *client) {
+void print_request(const Client *client) {
   if (!client)
     return;
 
