@@ -18,7 +18,6 @@ bool handle_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
-  print_client(client);
   // Setting both response, mime and content_len structs to null
   client->dynamic_response_body = client->static_response_body =
       client->response_mime = client->response_body_len = ERR_STR;
@@ -29,13 +28,24 @@ bool handle_response(Client *client) {
 
   // If response is not OK, then print the error message on client side
   if (equals(&client->response_status, &STR("200 OK")))
-    if (!generate_response(client))
-      return err("Generating response", true);
+    if (!generate_response(client)) {
+      client->response_status = STR("500 Internal Server Error");
+      err("Generating response", true);
+    }
 
   if (!set_content_length(client))
-    return err("Setting content length", false);
+    err("Setting content length", false);
 
-  if (!write_response(client))
+  if (!equals(&client->response_status, &STR("200 OK"))) {
+    free_client(client); // Now all the buffers will be on this stack
+    client->dynamic_response_body =
+        client->response_status; // Writing the error code on client side
+    client->response_mime = STR("text/html");
+  }
+
+  // print_client(client);
+
+  if (!write_response(client)) // No hope now, have to return :)
     return err("Writing response", true);
 
   return true;
@@ -341,7 +351,7 @@ bool set_content_length(Client *client) {
                             : client->dynamic_response_body.len;
 
   // the str is freed in free_client
-  if (!int_to_string((int)final_len, &client->response_body_len))
+  if (final_len && !int_to_string((int)final_len, &client->response_body_len))
     return err("Converting length to string", false);
 
   return true;

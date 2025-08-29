@@ -50,7 +50,7 @@ bool handle_client(Client *client) {
       total_read = (size_t)(end_ptr - buf);
   } else {
     errno = errno ? errno : EMSGSIZE;
-    return err("Reading request", true);
+    err("Reading request", true);
   }
 
   // At this point total_read is the correct len of data in buf
@@ -58,10 +58,20 @@ bool handle_client(Client *client) {
   client->request.data = buf;
   client->request.len = (ptrdiff_t)total_read;
 
-  // Handle request sets the required response codes
-  if (!handle_request(client))
-    return err("Handling request", true);
+  client->response_status =
+      errno == EMSGSIZE ? STR("431 Request Header Fields Too Large") : ERR_STR;
 
+  // Handle request sets the required response codes
+  // In case no response code is set, means the function errored and
+  // handle_response will send 500 code
+  if (!handle_request(client))
+    err("Handling request", true);
+
+  if (errno == EMSGSIZE)
+    client->response_status = STR("431 Request Header Fields Too Large");
+
+  // If the response_status is not set at this point, then that means either
+  // read() or handle_request() errored
   if (!handle_response(client))
     return err("Handling response", true);
 

@@ -20,6 +20,8 @@ const Str STATIC_PATHS[] = {
     STR(STATIC_PATH(SERVER_JS)), STR(STATIC_PATH(ERROR_HTML))};
 
 bool handle_request(Client *client) {
+  // This function cannot return any error as to generate a response, all the
+  // information is required from this function
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -27,9 +29,17 @@ bool handle_request(Client *client) {
   // Head should just read GET
   // Tail everything after that
   Cut c = cut(client->request, ' ');
-  if (!(c.head.data) || validate_method(&(c.head)) <= 0) {
-    client->response_status = STR("405 Method Not Allowed");
-    return err("Invalid method", false);
+  if (!c.head.data) { // Request is not a valid http request
+    client->response_status = !client->response_status.data
+                                  ? STR("400 Bad Request")
+                                  : client->response_status;
+    err("(400) Method missing", false);
+  }
+  if (!validate_method(&c.head)) { // Method is invalid
+    client->response_status = !client->response_status.data
+                                  ? STR("405 Method Not Allowed")
+                                  : client->response_status;
+    err("(405) Invalid method", false);
   }
   client->request_method = c.head;
 
@@ -40,15 +50,26 @@ bool handle_request(Client *client) {
               // print the request as is before erroring out or simplifying it
   print_request(client);
 
-  if (!(client->request_path.data) ||
-      !validate_path(&(client->request_path), &(client->request_static))) {
-    if (errno == ENOENT)
+  if (!c.head.data) { // Request is not a valid http request
+    client->response_status = !client->response_status.data
+                                  ? STR("400 Bad Request")
+                                  : client->response_status;
+    err("(400) Path missing", false);
+  }
+  if (!validate_path(
+          &client->request_path,
+          &client->request_static)) { // Path is not valid for some reason
+    if (errno == EINVAL &&
+        !client->response_status.data) // path is invalid, does not start with /
+      client->response_status = STR("400 Bad Request");
+    else if (errno == ENOENT && !client->response_status.data)
       client->response_status = STR("404 Not Found");
-    else if (errno == EACCES)
+    else if (errno == EACCES && !client->response_status.data)
       client->response_status = STR("403 Forbidden");
-    return err("Invalid path", true);
+    err("Invalid path", true);
   } else
-    client->response_status = STR("200 OK");
+    client->response_status =
+        !client->response_status.data ? STR("200 OK") : client->response_status;
   // The path exists and points to a valid file or dir which i can access
   // first I was using realpath :)
 
@@ -72,8 +93,10 @@ bool validate_path(Str *path, bool *is_static) {
   if (!path || !(path->data))
     return null_ptr("Invalid path pointer");
 
-  if (!(path->len) || (path->data)[0] != '/')
+  if (!(path->len) || (path->data)[0] != '/') {
+    errno = EINVAL;
     return err("Invalid path", false);
+  }
 
   ptrdiff_t depth = 0;
 
@@ -83,7 +106,7 @@ bool validate_path(Str *path, bool *is_static) {
     Str path_seg = c.head;
 
     if (equals(&path_seg, &(STR(".."))) && --depth < 0) {
-      errno = EPERM;
+      errno = EACCES;
       return err("Path above root", true);
     } else if (equals(&path_seg, &(STR(""))) || equals(&path_seg, &(STR("."))))
       continue; // not counting empty or current directory segs
@@ -152,7 +175,8 @@ bool check_static(Str *path) {
 
   for (u_long i = 0; i < LEN; i++)
     if (!strcmp(path->data, STATIC_FILES[i])) {
-      // Tried concatenating here, but did not work cause i need string literals
+      // Tried concatenating here, but did not work cause i need string
+      // literals
       *path = STATIC_PATHS[i];
       return true;
     }

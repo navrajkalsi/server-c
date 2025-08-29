@@ -26,7 +26,7 @@ INSTALL ?= install
 # Project Specific
 # obj could be skipped as only one file at this point
 NAME := server-c
-SRC := main.c
+SRC := ./src/*
 OBJ := $(SRC:.c=.o)
 # CFLAGS ?= -Wall -Werror -Wextra -g
 # Dev Flags

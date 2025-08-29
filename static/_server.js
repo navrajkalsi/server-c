@@ -230,10 +230,33 @@ function handle_motion() {
   }
 }
 
+// Creates a new <li>, fills it and returns it
+function get_li(content) {
+  li = document.createElement("li");
+  li.textContent = content.trim();
+  return li;
+}
+
+// Formats the main-list so that each entry is displayed as a li element
+function format_list() {
+  entries = files_list.textContent.split("\n"); // Removing the last \n
+
+  // reset
+  files_list.innerHTML = "";
+
+  for (entry of entries) {
+    if (!entry.trim().length)
+      continue
+    files_list.appendChild(get_li(entry));
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("current_url").textContent = current_path;
 
   files_list.id = "main-list"; // Adding id to the list for styles
+
+  format_list();
 
   for (const file of files_list.children) {
     file.onclick = () =>
