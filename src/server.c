@@ -3,7 +3,6 @@
 #include "../include/main.h"
 #include <arpa/inet.h>
 #include <asm-generic/errno-base.h>
-#include <asm-generic/errno.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -97,7 +96,7 @@ bool setup_server(Config *cfg, int *server_fd) {
   freeaddrinfo(out);
 
   if (*server_fd == -1) {
-    errno = ECONNABORTED;
+    errno = EADDRNOTAVAIL;
     return err("Getting server file descriptor", true);
   }
   if (listen(*server_fd, BACKLOG) < 0)
@@ -114,7 +113,7 @@ bool start_server(const int server_fd) {
   RUNNING = true;
   setup_sig_handler();
 
-  // In the loop, a function call can error in two ways, if SIGTERM or SIGKILL
+  // In the loop, a function call can error in two ways, if SIGTERM or SIGINT
   // is received || the function itself errors
   // In former, errno would be EINTR
   while (RUNNING) {
@@ -123,8 +122,8 @@ bool start_server(const int server_fd) {
     // Though it is not necessary here, as all ips will be mapped to ip6
     struct sockaddr_storage client_address;
     // client_init could be used
-    Client client;
-    client.request = STR("");
+    Client client = {0};
+    client.request = ERR_STR;
     client.address_len = sizeof client_address;
     client.address = &client_address;
 

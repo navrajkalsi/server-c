@@ -1,6 +1,5 @@
 #include "../include/request.h"
 #include <arpa/inet.h>
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -76,6 +75,10 @@ bool handle_request(Client *client) {
   // getting http version of the request
   // have to split with newline now
   client->http_ver = cut(c.tail, '\n').head;
+
+  // There is probably a \r at the end of http_ver, removing it
+  if (client->http_ver.data[client->http_ver.len - 1] == '\r')
+    --client->http_ver.len;
 
   return true;
 }

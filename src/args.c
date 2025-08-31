@@ -1,6 +1,5 @@
 #include "../include/args.h"
 #include "../include/utils.h"
-#include <asm-generic/errno-base.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -14,7 +13,10 @@
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
-  Config cfg = {{NULL, 0}, DEFAULT_PORT, false, false};
+  Config cfg = {.root_dir = {NULL, 0},
+                .port = DEFAULT_PORT,
+                .accept_all = false,
+                .debug = false};
 
   int arg; // cannot be char, although the switch will compare it to char,
            // because getopt() can return -1 as well, therefore we will be

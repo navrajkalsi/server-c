@@ -2,8 +2,6 @@
 #include "../include/request.h"
 #include "../include/response.h"
 #include <arpa/inet.h>
-#include <asm-generic/errno-base.h>
-#include <asm-generic/errno.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
