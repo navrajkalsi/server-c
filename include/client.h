@@ -24,8 +24,10 @@ typedef struct {
   // in addition to the dir contents)
   Str static_response_body;
   Str response_status;
-  Str response_mime;
-  Str response_body_len;      // to be used as content-length header
+  Str content_type;
+  Str content_length;         // to be used as content-length header
+  Str connection;             // keep-alive or close
+  Str date;                   // current date and time
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;

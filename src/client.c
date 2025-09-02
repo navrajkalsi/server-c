@@ -109,11 +109,17 @@ void free_client(Client *client) {
   if (client->static_response_body.len)
     str_free(&client->static_response_body);
 
-  if (client->response_mime.len)
-    str_free(&client->response_mime);
+  if (client->content_type.len)
+    str_free(&client->content_type);
 
-  if (client->response_body_len.len)
-    str_free(&client->response_body_len);
+  if (client->content_length.len)
+    str_free(&client->content_length);
+
+  if (client->connection.len)
+    str_free(&client->connection);
+
+  if (client->date.len)
+    str_free(&client->date);
 
   return;
 }

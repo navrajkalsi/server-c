@@ -37,3 +37,5 @@ extern bool RUNNING; // For shutdown handling
 // To convert numeric to string
 #define TO_STRING_HELPER(x) #x
 #define TO_STRING(x) TO_STRING_HELPER(x)
+// Date len is the length of a date for http header plus a null terminator
+#define DATE_LEN 30

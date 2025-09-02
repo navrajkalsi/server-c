@@ -17,7 +17,12 @@ typedef struct {
   bool found;
 } Cut;
 
+// Converts a null terminated string to a malloced Str
+Str str_init(char *in);
+
 void str_free(Str *in);
+
+void str_print(const Str *in);
 
 // strcmp like
 bool equals(const Str *a, const Str *b);

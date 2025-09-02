@@ -144,10 +144,7 @@ bool start_server(const int server_fd) {
     if (!(status = handle_client(&client)))
       err("Handling client", true);
 
-    if (equals(&client.response_status,
-               &STR("200 OK"))) // Responses are allocated statically in case of
-                                // an error
-      free_client(&client);
+    free_client(&client);
 
     if (close(client.fd) < 0) {
       err("Closing client", true);

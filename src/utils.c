@@ -1,7 +1,5 @@
 #include "../include/utils.h"
 #include "../include/main.h"
-
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -10,6 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+Str str_init(char *in) {
+  return !in ? ERR_STR
+             : (Str){.data = strdup(in), .len = (ptrdiff_t)strlen(in)};
+}
+
 void str_free(Str *in) {
   if (in && in->data && in->len) {
     free(in->data);
@@ -17,6 +20,11 @@ void str_free(Str *in) {
     in->len = 0;
   }
   return;
+}
+
+void str_print(const Str *in) {
+  if (in)
+    printf("%.*s\n", (int)in->len, in->data);
 }
 
 bool equals(const Str *a, const Str *b) {
