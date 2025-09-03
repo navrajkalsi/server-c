@@ -31,7 +31,7 @@ void *handle_thread(void *arg) {
     // clients list
     // when signalled, it acquires the lock again to continue handling
     // connection
-    if (!(client = dequeue_client()))
+    while (!(client = dequeue_client()) && RUNNING)
       // waiting only if there is no new work
       pthread_cond_wait(&condition_var, &mutex);
 
@@ -39,10 +39,9 @@ void *handle_thread(void *arg) {
 
     if (!client)
       continue;
+
     handle_client(client);
-
     close(client->fd);
-
     free_client(&client);
   }
 
