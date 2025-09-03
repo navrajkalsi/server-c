@@ -10,6 +10,9 @@
 #include <string.h>
 #include <unistd.h>
 
+static ClientNode *head = NULL;
+static ClientNode *tail = NULL;
+
 bool handle_client(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
@@ -98,28 +101,68 @@ void print_client(const Client *client) {
          client->request_static ? "Static" : "User request");
 }
 
-void free_client(Client *client) {
+void free_client(Client **client) {
   if (!client)
     return;
 
-  if (client->dynamic_response_body.len)
-    str_free(&client->dynamic_response_body);
+  Client to_free = **client;
+
+  if (to_free.dynamic_response_body.len)
+    str_free(&to_free.dynamic_response_body);
 
   // both response bodies would be malloced at some point if they exist
-  if (client->static_response_body.len)
-    str_free(&client->static_response_body);
+  if (to_free.static_response_body.len)
+    str_free(&to_free.static_response_body);
 
-  if (client->content_type.len)
-    str_free(&client->content_type);
+  if (to_free.content_type.len)
+    str_free(&to_free.content_type);
 
-  if (client->content_length.len)
-    str_free(&client->content_length);
+  if (to_free.content_length.len)
+    str_free(&to_free.content_length);
 
-  if (client->connection.len)
-    str_free(&client->connection);
+  if (to_free.connection.len)
+    str_free(&to_free.connection);
 
-  if (client->date.len)
-    str_free(&client->date);
+  if (to_free.date.len)
+    str_free(&to_free.date);
+
+  free(*client);
+  *client = NULL;
 
   return;
+}
+
+void enqueue_client(Client *client) {
+  if (!client)
+    return;
+
+  ClientNode *new_node;
+  if (!(new_node = (ClientNode *)malloc(sizeof(ClientNode))))
+    return;
+
+  new_node->client = client;
+  new_node->next = NULL;
+
+  if (!tail)
+    head = new_node;
+  else
+    tail->next = new_node;
+
+  tail = new_node;
+}
+
+Client *dequeue_client(void) {
+  if (!head)
+    return NULL;
+
+  Client *result = head->client;
+  ClientNode *temp = head;
+  head = head->next;
+
+  if (!head)
+    tail = NULL;
+
+  free(temp);
+
+  return result;
 }

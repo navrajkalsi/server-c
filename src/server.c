@@ -2,11 +2,12 @@
 #include "../include/client.h"
 #include "../include/main.h"
 #include <arpa/inet.h>
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -122,38 +123,53 @@ bool start_server(const int server_fd) {
     // Though it is not necessary here, as all ips will be mapped to ip6
     struct sockaddr_storage client_address;
     // client_init could be used
-    Client client = {0};
-    client.request = ERR_STR;
-    client.address_len = sizeof client_address;
-    client.address = &client_address;
+    Client *client = (Client *)malloc(sizeof *client);
+    if (!client) {
+      err("Malloc client struct", true);
+      break;
+    }
 
-    if ((client.fd = accept(server_fd, (struct sockaddr *)&client_address,
-                            &(client.address_len))) < 0) {
-      if (errno == EINTR && !RUNNING)
+    client->request = ERR_STR;
+    client->address_len = sizeof client_address;
+    client->address = &client_address;
+
+    if ((client->fd = accept(server_fd, (struct sockaddr *)&client_address,
+                             &(client->address_len))) < 0) {
+      if (errno == EINTR && !RUNNING) {
+        free(client);
         break; // shutdown
+      }
       if (errno == ECONNABORTED) {
+        free(client);
         err("Connection aborted",
             true); // connection aborted, maybe client closed connection
         continue;
       }
+      free(client);
       err("Accepting connection", true);
       break;
     }
 
-    bool status;
-    if (!(status = handle_client(&client)))
-      err("Handling client", true);
+    pthread_mutex_lock(&mutex);
+    enqueue_client(client);
+    pthread_cond_signal(&condition_var); // now a thread is signalled and that
+                                         // thread aquires the lock
+    pthread_mutex_unlock(&mutex);
 
-    free_client(&client);
+    // bool status;
+    // if (!(status = handle_client(client)))
+    //   err("Handling client", true);
 
-    if (close(client.fd) < 0) {
-      err("Closing client", true);
-      break;
-    }
+    // if (close(client->fd) < 0) {
+    //   err("Closing client", true);
+    //   break;
+    // }
 
-    if (!status) {
-      break;
-    }
+    // free_client(&client);
+
+    // if (!status) {
+    //   break;
+    // }
   }
 
   if (close(server_fd) < 0)

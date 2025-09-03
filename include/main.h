@@ -1,11 +1,14 @@
 #pragma once
 
+#include <pthread.h>
+
 // Args.c specific
 #define DEFAULT_PORT "1419"
 #define DEFAULT_ROOT_DIR "./"
 
 // Server.c specific
-#define BACKLOG 10
+#define BACKLOG 256
+#define THREAD_POOL_SIZE 10
 
 // Utils.c specific
 extern bool RUNNING; // For shutdown handling
@@ -39,3 +42,7 @@ extern bool RUNNING; // For shutdown handling
 #define TO_STRING(x) TO_STRING_HELPER(x)
 // Date len is the length of a date for http header plus a null terminator
 #define DATE_LEN 30
+
+// Threads.c specific
+extern pthread_mutex_t mutex;
+extern pthread_cond_t condition_var;

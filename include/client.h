@@ -35,10 +35,22 @@ typedef struct {
   bool request_static;
 } Client;
 
+// Linked list node for clients, for threading
+typedef struct client_node {
+  Client *client;
+  struct client_node *next;
+} ClientNode;
+
 bool handle_client(Client *client);
 
 // useful in debugging
 void print_client(const Client *client);
 
 // just checks and frees the response bodies, as they are the only malloced vars
-void free_client(Client *client);
+void free_client(Client **client);
+
+// adds client struct to list of clients read to be handled by threads
+void enqueue_client(Client *client);
+
+// removes a client from the list when the response is done or an error occurs
+Client *dequeue_client(void);

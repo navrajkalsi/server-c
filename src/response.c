@@ -33,8 +33,8 @@ bool handle_response(Client *client) {
 
   if (!equals(&client->response_status, &STR("200 OK"))) {
     free_client(
-        client); // Freeing any previous response bodies and content_type
-                 // As length and connection will be set later
+        &client); // Freeing any previous response bodies and content_type
+                  // As length and connection will be set later
     error_response(client);
   }
 
