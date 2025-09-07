@@ -26,7 +26,7 @@ INSTALL ?= install
 # Project Specific
 # obj could be skipped as only one file at this point
 NAME := server-c
-SRC := ./src/*
+SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
 # CFLAGS ?= -Wall -Werror -Wextra -g
 # Dev Flags
@@ -55,7 +55,7 @@ $(NAME): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compiling each .c file to .o
-%.o: %.c
+src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Builds first
@@ -64,6 +64,7 @@ install: all
 	$(INSTALL) -m 0755 $(NAME) $(DESTDIR)$(bindir)/$(NAME)
 	mkdir -p $(DESTDIR)$(datadir)/$(NAME)/static
 	$(INSTALL) -m 0644 static/* $(DESTDIR)$(datadir)/$(NAME)/static
+	@echo "You are ready to SERVE!"
 
 uninstall:
 	rm -r $(DESTDIR)$(bindir)/$(NAME)
