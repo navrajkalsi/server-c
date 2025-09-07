@@ -38,6 +38,9 @@ Str drophead(Str str, ptrdiff_t drop);
 // starting values
 Cut cut(Str str, char sep);
 
+// checks if str contains chars anywhere
+bool contains(const Str *str, const char *chars);
+
 // returns Str after combining two Strs
 Str join(Str a, Str b);
 

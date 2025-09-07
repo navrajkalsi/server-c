@@ -31,7 +31,7 @@ OBJ := $(SRC:.c=.o)
 # CFLAGS ?= -Wall -Werror -Wextra -g
 # Dev Flags
 CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined
-LDFLAGS ?= -lmagic
+LDFLAGS ?= -lmagic -lpthread
 # Static_Dir for server files
 STATIC_DIR ?= $(datadir)/$(NAME)/static
 # Static_Dir for development only, installs binary and static files in the same dir

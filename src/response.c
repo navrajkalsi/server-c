@@ -16,35 +16,26 @@ bool handle_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
-  // Setting both response, mime and content_len structs to null
-  client->dynamic_response_body = client->static_response_body =
-      client->content_type = client->content_length = ERR_STR;
-
   // If response code not set, something is not right
-  if (!client->response_status.data || !client->response_status.len)
-    client->response_status = STR("500 Internal Server Error");
+  client->response_status =
+      ASSIGN_IF_NULL(client->response_status, "500 Internal Server Error");
 
   // If response is not OK, then print the error message on client side
-  if (equals(&client->response_status, &STR("200 OK")))
-    if (!generate_response(client)) {
-      client->response_status = STR("500 Internal Server Error");
-      err("Generating response", true);
-    }
+  // now need to generate response
+  if (equals(&client->response_status, &STR("200 OK")) &&
+      !generate_response(client)) {
+    client->response_status = STR("500 Internal Server Error");
+    err("Generating response", true);
+  }
 
   if (!equals(&client->response_status, &STR("200 OK"))) {
-    free_client(
-        &client); // Freeing any previous response bodies and content_type
-                  // As length and connection will be set later
-    error_response(client);
+    free_client_members(client); // Freeing any previous response bodies and
+                                 // content_type As length will be set later
+    generate_error(client);
   }
 
   if (!set_content_length(client))
     err("Setting content length", false);
-
-  if (!set_connection_type(client)) {
-    client->connection = str_init("close");
-    err("Setting connection type", false);
-  }
 
   if (!set_date(client))
     err("Setting date", false);
@@ -120,6 +111,7 @@ bool write_response_body(const Client *client) {
     return null_ptr("Invalid client pointer");
 
   // Serving SERVER_HTML with file listings
+  // or ERROR_HTML with response status
   if (client->static_response_body.len && client->static_delimiter) {
     Str before_delimiter, after_delimiter;
     before_delimiter = after_delimiter = client->static_response_body;
@@ -145,35 +137,6 @@ bool write_response_body(const Client *client) {
   return true;
 }
 
-bool error_response(Client *client) {
-  if (!client)
-    return null_ptr("Invalid client pointer");
-
-  Str *body = &client->dynamic_response_body;
-  body->len = (ptrdiff_t)strlen("<h1></h1>") + client->response_status.len;
-
-  // Serving a simple error code to the client
-  if (!(body->data = (char *)malloc((size_t)body->len)))
-    return err("Malloc error body", true);
-
-  // Writing the body
-  ptrdiff_t pos = 0;
-  // Just for now
-  {
-    memcpy(client->dynamic_response_body.data + pos, "<h1>", 4);
-    pos += 4;
-    memcpy(client->dynamic_response_body.data + pos,
-           client->response_status.data, (size_t)client->response_status.len);
-    pos += client->response_status.len;
-    memcpy(client->dynamic_response_body.data + pos, "</h1>", 5);
-    pos += 5;
-  }
-
-  client->content_type = str_init("text/html");
-
-  return pos == body->len;
-}
-
 bool generate_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
@@ -195,6 +158,18 @@ bool generate_response(Client *client) {
   }
 
   return true;
+}
+
+bool generate_error(Client *client) {
+  if (!client)
+    return null_ptr("Invalid client pointer");
+
+  // Serving a simple error code to the client
+  client->dynamic_response_body.len = client->response_status.len;
+  client->dynamic_response_body.data = strdup(client->response_status.data);
+
+  return read_static_file(client, STATIC_PATHS[ERR].data) &&
+         find_delimiter(client);
 }
 
 // Deals with every user requested file
@@ -404,22 +379,8 @@ bool set_content_length(Client *client) {
                             : client->dynamic_response_body.len;
 
   // the str is freed in free_client
-  if (final_len && !int_to_string((int)final_len, &client->content_length))
+  if (!final_len || !int_to_string((int)final_len, &client->content_length))
     return err("Converting length to string", false);
-
-  return true;
-}
-
-bool set_connection_type(Client *client) {
-  if (!client)
-    return null_ptr("Invalid client pointer");
-
-  if (equals(&client->http_ver, &STR("HTTP/1.1")) ||
-      equals(&client->http_ver, &STR("HTTP/2")) ||
-      equals(&client->http_ver, &STR("HTTP/3")))
-    client->connection = str_init("keep-alive");
-  else
-    client->connection = str_init("close");
 
   return true;
 }

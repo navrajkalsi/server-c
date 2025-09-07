@@ -8,7 +8,7 @@
 
 // Server.c specific
 #define BACKLOG 256
-#define THREAD_POOL_SIZE 10
+#define THREAD_POOL_SIZE 25
 
 // Utils.c specific
 extern bool RUNNING; // For shutdown handling
@@ -31,6 +31,8 @@ extern bool RUNNING; // For shutdown handling
 #define SERVER_JS "_server.js"
 #define ERROR_HTML "_error.html"
 #define ICON_ICO "favicon.ico"
+// only to assign the string literal to str.data if str.data is null
+#define ASSIGN_IF_NULL(str, literal) !str.data ? STR(literal) : str
 
 // Response.c specific
 #define TRAILER STR("\r\n\r\n")

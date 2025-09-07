@@ -2,6 +2,7 @@
 #include "../include/main.h"
 #include <errno.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <unistd.h>
 
 pthread_t thread_pool[THREAD_POOL_SIZE];
@@ -21,6 +22,8 @@ bool create_threads(void) {
 
 void *handle_thread(void *arg) {
   (void)arg;
+  pthread_t current = pthread_self();
+
   while (RUNNING) {
     Client *client;
     // mutex lock ensures that only one of the threads tries to connect and
@@ -40,10 +43,35 @@ void *handle_thread(void *arg) {
     if (!client)
       continue;
 
+    printf("Currently in thread: %lu\n", (unsigned long)current);
     handle_client(client);
     close(client->fd);
     free_client(&client);
   }
 
   return NULL;
+}
+
+void cleanup_pool(void) {
+  if (RUNNING)
+    return (void)err("Server not stopped", false);
+
+  // signalling threads to exits the loop
+  pthread_cond_broadcast(&condition_var);
+
+  // pthread_join waits for each thread to terminate
+  for (int i = 0; i < THREAD_POOL_SIZE; i++)
+    if ((errno = pthread_join(thread_pool[i], NULL)))
+      return (void)err("Joining thread", true);
+
+  // remove all clients
+  pthread_mutex_lock(&mutex);
+  Client *client;
+  while ((client = dequeue_client())) {
+    close(client->fd);
+    free_client(&client);
+  }
+  pthread_mutex_unlock(&mutex);
+
+  return;
 }

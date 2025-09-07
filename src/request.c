@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -19,8 +20,6 @@ const Str STATIC_PATHS[] = {
     STR(STATIC_PATH(SERVER_JS)), STR(STATIC_PATH(ERROR_HTML))};
 
 bool handle_request(Client *client) {
-  // This function cannot return any error as to generate a response, all the
-  // information is required from this function
   if (!client)
     return null_ptr("Invalid client pointer");
 
@@ -28,57 +27,72 @@ bool handle_request(Client *client) {
   // Head should just read GET
   // Tail everything after that
   Cut c = cut(client->request, ' ');
-  if (!c.head.data) { // Request is not a valid http request
-    client->response_status = !client->response_status.data
-                                  ? STR("400 Bad Request")
-                                  : client->response_status;
-    err("(400) Method missing", false);
+  if (!(client->request_method = c.head)
+           .data) { // Request is not a valid http request
+    client->response_status =
+        ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
+    return err("Cutting method", false); // Cannot do much else in this func now
   }
-  if (!validate_method(&c.head)) { // Method is invalid
-    client->response_status = !client->response_status.data
-                                  ? STR("405 Method Not Allowed")
-                                  : client->response_status;
-    err("(405) Invalid method", false);
+  if (!validate_method(&client->request_method)) { // Method is invalid
+    client->response_status =
+        ASSIGN_IF_NULL(client->response_status, "405 Method Not Allowed");
+    err("Invalid method", false);
   }
-  client->request_method = c.head;
 
   // Cutting path
   c = cut(c.tail, ' ');
-  client->request_path =
-      c.head; // assigning before verifying because i need to
-              // print the request as is before erroring out or simplifying it
+  if (!(client->request_path = c.head)
+           .data) { // Request is not a valid http request
+    client->response_status =
+        ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
+    return err("Cutting path", false);
+  }
   print_request(client);
 
-  if (!c.head.data) { // Request is not a valid http request
-    client->response_status = !client->response_status.data
-                                  ? STR("400 Bad Request")
-                                  : client->response_status;
-    err("(400) Path missing", false);
-  }
   if (!validate_path(
           &client->request_path,
           &client->request_static)) { // Path is not valid for some reason
-    if (errno == EINVAL &&
-        !client->response_status.data) // path is invalid, does not start with /
-      client->response_status = STR("400 Bad Request");
-    else if (errno == ENOENT && !client->response_status.data)
-      client->response_status = STR("404 Not Found");
-    else if (errno == EACCES && !client->response_status.data)
-      client->response_status = STR("403 Forbidden");
+    if (errno == EINVAL)              // path is invalid, does not start with /
+      client->response_status =
+          ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
+    else if (errno == EACCES)
+      client->response_status =
+          ASSIGN_IF_NULL(client->response_status, "403 Forbidden");
+    else if (errno == ENOENT) // path does not exist
+      client->response_status =
+          ASSIGN_IF_NULL(client->response_status, "404 Not Found");
     err("Invalid path", true);
-  } else
-    client->response_status =
-        !client->response_status.data ? STR("200 OK") : client->response_status;
+  }
   // The path exists and points to a valid file or dir which i can access
   // first I was using realpath :)
 
   // getting http version of the request
-  // have to split with newline now
-  client->http_ver = cut(c.tail, '\n').head;
+  // have to split with carraige return now
+  c = cut(c.tail, '\n'); // not assigning to http_ver, if the string is invalid
+                         // using the default http_ver of the server
+  if (c.head.data[c.head.len - 1] == '\r')
+    c.head.len--; // this way malformed request that only use '\n' are also
+                  // supported
 
-  // There is probably a \r at the end of http_ver, removing it
-  if (client->http_ver.data[client->http_ver.len - 1] == '\r')
-    --client->http_ver.len;
+  // returns 400 for HTTP/0.9
+  if (!c.head.data || !validate_http(&c.head)) {
+    client->response_status =
+        ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
+    return err("Cutting & validating HTTP version", false);
+  }
+
+  if (equals(&c.head, &STR("HTTP/2.0")) || equals(&c.head, &STR("HTTP/3.0")))
+    client->response_status = ASSIGN_IF_NULL(client->response_status,
+                                             "505 HTTP Version Not Supported");
+  else {
+    client->http_ver = c.head; // only assigning if version is valid and
+                               // supported, otherwise v1.1 is used
+    client->response_status = ASSIGN_IF_NULL(client->response_status, "200 OK");
+  }
+
+  if (!set_connection(&client->connection, &c.tail))
+    if (equals(&client->http_ver, &STR("HTTP/1.0"))) // setting default for 1.0
+      client->connection = STR("close");
 
   return true;
 }
@@ -98,7 +112,7 @@ bool validate_path(Str *path, bool *is_static) {
 
   if (!(path->len) || (path->data)[0] != '/') {
     errno = EINVAL;
-    return err("Invalid path", false);
+    return err("Invalid path", true);
   }
 
   ptrdiff_t depth = 0;
@@ -140,10 +154,59 @@ bool validate_path(Str *path, bool *is_static) {
   // this also sets the path to the final ABSOLUTE path of the file
   *is_static = check_static(path);
 
-  // now the path is finals for static resources request and user requests
-
+  // now the path is final for static resources request and user requests
   // check if the path exists and if i can acces it
   return path_exists(path->data);
+}
+
+bool validate_http(const Str *http_ver) {
+  if (!http_ver)
+    return null_ptr("Invalid HTTP pointer");
+
+  if (equals(http_ver, &STR("HTTP/1.0")) ||
+      equals(http_ver, &STR("HTTP/1.1")) ||
+      equals(http_ver, &STR("HTTP/2.0")) || equals(http_ver, &STR("HTTP/3.0")))
+    return true;
+
+  return false;
+}
+
+bool set_connection(Str *connection, Str *request) {
+  if (!request || !request->len || !request->data)
+    return null_ptr("Invalid request pointer");
+
+  Cut c = {0};
+  c.tail = *request;
+
+  while (c.tail.len && c.tail.data) {
+    c = cut(c.tail, '\n');
+    if (strncasecmp(c.head.data, "Connection:", (size_t)c.head.len) == 0)
+      break;
+  }
+
+  str_print(&c.head);
+  if (!c.tail.len || !c.tail.data || !c.head.len || !c.head.data) // not found
+    return false;
+
+  // c.head contains the connection str
+  // shifting to point to the header value
+  if (c.head.data[11] == ' ') {
+    c.head.data += 12;
+    c.head.len -= 12;
+  } else {
+    c.head.data += 11;
+    c.head.len -= 11;
+  }
+
+  if (strncasecmp(c.head.data, "keep-alive", (size_t)c.head.len) == 0)
+    *connection = STR("keep-alive");
+  else if (strncasecmp(c.head.data, "close", (size_t)c.head.len) == 0)
+    *connection = STR("close");
+  else
+    return false; // now the connection has to be set depending on the http
+                  // version
+
+  return true;
 }
 
 bool path_exists(const char *path) {
@@ -153,7 +216,7 @@ bool path_exists(const char *path) {
 
 void print_request(const Client *client) {
   if (!client)
-    return;
+    return (void)null_ptr("Invalid client pointer");
 
   // Even if the client has an ip4 address, the client_address is filled with
   // a ip6 mapped ip4 address
@@ -174,7 +237,7 @@ void print_request(const Client *client) {
 // paths are used
 bool check_static(Str *path) {
   if (!path)
-    return false;
+    return null_ptr("Invalid path pointer");
 
   for (u_long i = 0; i < LEN; i++)
     if (!strcmp(path->data, STATIC_FILES[i])) {

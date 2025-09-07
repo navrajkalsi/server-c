@@ -1,8 +1,10 @@
 #include "../include/server.h"
 #include "../include/client.h"
 #include "../include/main.h"
+#include "../include/threads.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -68,6 +70,22 @@ bool setup_server(Config *cfg, int *server_fd) {
       continue;
     }
 
+    // Adding timeouts for read and write
+    struct timeval time = {.tv_sec = 5, .tv_usec = 0};
+    if (setsockopt(*server_fd, SOL_SOCKET, SO_RCVTIMEO, &time, sizeof time) <
+        0) {
+      close(*server_fd);
+      *server_fd = -1;
+      continue;
+    }
+
+    if (setsockopt(*server_fd, SOL_SOCKET, SO_SNDTIMEO, &time, sizeof time) <
+        0) {
+      close(*server_fd);
+      *server_fd = -1;
+      continue;
+    }
+
     if (bind(*server_fd, current->ai_addr, current->ai_addrlen) < 0) {
       close(*server_fd);
       *server_fd = -1;
@@ -100,6 +118,7 @@ bool setup_server(Config *cfg, int *server_fd) {
     errno = EADDRNOTAVAIL;
     return err("Getting server file descriptor", true);
   }
+
   if (listen(*server_fd, BACKLOG) < 0)
     return err("Listening", true);
 
@@ -118,34 +137,34 @@ bool start_server(const int server_fd) {
   // is received || the function itself errors
   // In former, errno would be EINTR
   while (RUNNING) {
-    // sockaddr_storage is better to store addresses than sockaddr, if ip v is
-    // not known beforehand
-    // Though it is not necessary here, as all ips will be mapped to ip6
-    struct sockaddr_storage client_address;
-    // client_init could be used
-    Client *client = (Client *)malloc(sizeof *client);
+    Client *client = client_init();
     if (!client) {
-      err("Malloc client struct", true);
+      err("Initialize client", true);
       break;
     }
 
-    client->request = ERR_STR;
-    client->address_len = sizeof client_address;
-    client->address = &client_address;
+    client->address = &(struct sockaddr_storage){0};
 
-    if ((client->fd = accept(server_fd, (struct sockaddr *)&client_address,
+    // sockaddr_storage is better to store addresses than sockaddr, if ip v is
+    // not known beforehand
+    // Though it is not necessary here, as all ips will be mapped to ip6
+    if ((client->fd = accept(server_fd, (struct sockaddr *)client->address,
                              &(client->address_len))) < 0) {
-      if (errno == EINTR && !RUNNING) {
-        free(client);
+      free(client);
+
+      if (errno == EINTR && !RUNNING)
         break; // shutdown
-      }
+
       if (errno == ECONNABORTED) {
-        free(client);
         err("Connection aborted",
             true); // connection aborted, maybe client closed connection
         continue;
       }
-      free(client);
+
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        // incase the socket closes
+        continue;
+
       err("Accepting connection", true);
       break;
     }
@@ -180,10 +199,14 @@ bool start_server(const int server_fd) {
   // will set RUNNING to false and then we can shutdown, otherwise this was an
   // actual error and return -1 If interrupted the errno at this point would
   // be EINTR
-  if (RUNNING)
+  if (RUNNING) {
+    RUNNING = false;
+    cleanup_pool();
     return err("Server terminated", true);
-  else
-    puts("\nShutting Down...\n");
+  }
+
+  puts("\nShutting Down...\n");
+  cleanup_pool();
 
   return true;
 }

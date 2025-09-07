@@ -2,12 +2,15 @@
 #include "../include/request.h"
 #include "../include/response.h"
 #include <arpa/inet.h>
-#include <errno.h>
+#include <asm-generic/errno.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 static ClientNode *head = NULL;
@@ -17,13 +20,27 @@ bool handle_client(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
 
+  /*
+  while (equals(&client->connection, &STR("keep-alive"))) {
+    // Using poll to know when reading(POLLIN) is possible
+    struct pollfd pollfd = {.fd = client->fd, .events = POLLIN};
+    int result = poll(&pollfd, 1, 10000); // 10s timeout for any incoming data
+                                          // selects only 1 fd
+
+  if (!result) // no data to read, can return to handle_thread
+    break;
+
+  if (result < 0)
+    return err("Poll", true);
+                                          */
+
   // buffer to be used for data storage for unknown length types
   // client.request then points to this buffer
   // no need for void, only gonna use chars
   char buf[BUF_MAX], *buf_ptr = buf;
   size_t total_read = 0;
   long read_status = 0;
-  char *end_ptr;
+  char *end_ptr = NULL;
 
   // Only headers are considered, cause I currently support GET only, anything
   // after TRAILER is disregarded
@@ -38,7 +55,7 @@ bool handle_client(Client *client) {
       break;
   }
 
-  if (read_status != -1 && end_ptr) {
+  if (read_status != -1 && end_ptr) { // everything is alright, got the headers
     // Advancing the ptr by 4 chars to get past the request end
     // Then comparing with buf_ptr to see if they are same
     // If same that means there is no body after headers and the total_read is
@@ -48,10 +65,20 @@ bool handle_client(Client *client) {
     if (end_ptr != buf_ptr)
       // Discard if there is any body in the request
       // Only supporting GET requests for now
+      // so don't need any body
       total_read = (size_t)(end_ptr - buf);
+  } else if (read_status != -1 && !end_ptr) { // could not find end of headers
+    // first looking if i got the first request line, if not the request is just
+    // not a valid request probably (bad request)
+    // looking for a linebreak "\r\n" for request line
+    client->response_status =
+        !strstr(buf, LINEBREAK.data)
+            ? STR("400 Bad Request") // no need to parse request now
+            : STR("431 Request Header Fields Too Large");
   } else {
-    errno = errno ? errno : EMSGSIZE;
     err("Reading request", true);
+    // Reading next request now
+    // continue;
   }
 
   // At this point total_read is the correct len of data in buf
@@ -59,22 +86,14 @@ bool handle_client(Client *client) {
   client->request.data = buf;
   client->request.len = (ptrdiff_t)total_read;
 
-  client->response_status =
-      errno == EMSGSIZE ? STR("431 Request Header Fields Too Large") : ERR_STR;
-
   // Handle request sets the required response codes
-  // In case no response code is set, means the function errored and
-  // handle_response will send 500 code
-  if (!handle_request(client))
+  // Only parsing (handle_request) if the request line is present
+  if (!equals(&client->response_status, &STR("400 Bad Request")) &&
+      !handle_request(client))
     err("Handling request", true);
 
-  if (errno == EMSGSIZE)
-    client->response_status = STR("431 Request Header Fields Too Large");
-
-  // If the response_status is not set at this point, then that means either
-  // read() or handle_request() errored
   if (!handle_response(client))
-    return err("Handling response", true);
+    err("Handling response", true);
 
   return true;
 }
@@ -105,31 +124,29 @@ void free_client(Client **client) {
   if (!client)
     return;
 
-  Client to_free = **client;
+  free_client_members(*client);
+  free(*client);
+}
 
-  if (to_free.dynamic_response_body.len)
-    str_free(&to_free.dynamic_response_body);
+void free_client_members(Client *client) {
+  if (!client)
+    return;
+
+  if (client->dynamic_response_body.len)
+    str_free(&client->dynamic_response_body);
 
   // both response bodies would be malloced at some point if they exist
-  if (to_free.static_response_body.len)
-    str_free(&to_free.static_response_body);
+  if (client->static_response_body.len)
+    str_free(&client->static_response_body);
 
-  if (to_free.content_type.len)
-    str_free(&to_free.content_type);
+  if (client->content_type.len)
+    str_free(&client->content_type);
 
-  if (to_free.content_length.len)
-    str_free(&to_free.content_length);
+  if (client->content_length.len)
+    str_free(&client->content_length);
 
-  if (to_free.connection.len)
-    str_free(&to_free.connection);
-
-  if (to_free.date.len)
-    str_free(&to_free.date);
-
-  free(*client);
-  *client = NULL;
-
-  return;
+  if (client->date.len)
+    str_free(&client->date);
 }
 
 void enqueue_client(Client *client) {
@@ -137,8 +154,10 @@ void enqueue_client(Client *client) {
     return;
 
   ClientNode *new_node;
-  if (!(new_node = (ClientNode *)malloc(sizeof(ClientNode))))
+  if (!(new_node = (ClientNode *)malloc(sizeof(ClientNode)))) {
+    err("Malloc client node", true);
     return;
+  }
 
   new_node->client = client;
   new_node->next = NULL;
@@ -163,6 +182,28 @@ Client *dequeue_client(void) {
     tail = NULL;
 
   free(temp);
-
   return result;
+}
+
+Client *client_init(void) {
+  Client *client = (Client *)malloc(sizeof *client);
+  if (!client)
+    return NULL;
+
+  { // Str
+    client->request = client->request_method = client->request_path =
+        client->dynamic_response_body = client->static_response_body =
+            client->response_status = client->content_type =
+                client->content_length = client->date = ERR_STR;
+  }
+
+  client->http_ver = STR("HTTP/1.1");
+  client->connection = STR("keep-alive");
+  // client->response_status = STR("500 Internal Server Error");
+  client->fd = -1;
+  client->address = NULL;
+  client->address_len = sizeof(struct sockaddr_storage);
+  client->request_static = false;
+
+  return client;
 }

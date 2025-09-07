@@ -63,17 +63,16 @@ Cut cut(Str str, char sep) {
   return ret;
 }
 
-Str join(Str a, Str b) {
-  if (!a.data || !b.data || a.len < 0 || b.len < 0)
-    return ERR_STR;
+bool contains(const Str *str, const char *chars) {
+  ptrdiff_t len = (ptrdiff_t)strlen(chars);
+  if (!str->len || !str->data || !len || len > str->len)
+    return false;
 
-  char joined[a.len + b.len + 1];
+  for (int i = 0; i < str->len - len; i++)
+    if (memcmp(str->data + i, chars, (size_t)len) == 0)
+      return true;
 
-  memcpy(joined, a.data, (size_t)a.len);
-  memcpy(joined + a.len, b.data, (size_t)b.len);
-  joined[a.len + b.len] = '\0';
-
-  return STR(joined);
+  return false;
 }
 
 bool err(const char *msg, bool print_errno) {

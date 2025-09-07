@@ -11,7 +11,6 @@
 // (filled by parse_request()), pointer to request_path (also filled by
 // parse_request())
 typedef struct {
-  struct sockaddr_storage *address;
   Str request;
   Str request_method;
   Str request_path;
@@ -25,9 +24,10 @@ typedef struct {
   Str static_response_body;
   Str response_status;
   Str content_type;
-  Str content_length;         // to be used as content-length header
-  Str connection;             // keep-alive or close
-  Str date;                   // current date and time
+  Str content_length;               // to be used as content-length header
+  Str connection;                   // keep-alive or close
+  Str date;                         // current date and time
+  struct sockaddr_storage *address; // address info of the client
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;
@@ -46,11 +46,18 @@ bool handle_client(Client *client);
 // useful in debugging
 void print_client(const Client *client);
 
-// just checks and frees the response bodies, as they are the only malloced vars
+// frees the members and the struct itself
 void free_client(Client **client);
+
+// just frees the client struct members
+void free_client_members(Client *client);
 
 // adds client struct to list of clients read to be handled by threads
 void enqueue_client(Client *client);
 
 // removes a client from the list when the response is done or an error occurs
 Client *dequeue_client(void);
+
+// initializes the client with malloc and fills it with default values of fields
+// user calls free
+Client *client_init(void);

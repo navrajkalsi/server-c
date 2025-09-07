@@ -12,11 +12,11 @@ bool write_response_body(const Client *client);
 
 bool write_str(const Client *client, const Str *str);
 
-// creates the error reponse body
-bool error_response(Client *client);
-
 // opens file/dir requested and reads it into client.response
 bool generate_response(Client *client);
+
+// creates the error reponse body
+bool generate_error(Client *client);
 
 // opens and reads the file into client.response
 bool read_dynamic_file(Client *client);
@@ -39,9 +39,6 @@ bool set_content_type(Client *client, const char *path);
 // As it uses the util: int_to_string() and that does not seem to work with
 // non-text based filetypes
 bool set_content_length(Client *client);
-
-// checks the http_ver and sets keep_alive as true or false
-bool set_connection_type(Client *client);
 
 // sets the date for header use
 bool set_date(Client *client);
