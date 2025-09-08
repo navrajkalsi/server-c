@@ -2,7 +2,6 @@
 #include "../include/main.h"
 #include <errno.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <unistd.h>
 
 pthread_t thread_pool[THREAD_POOL_SIZE];
@@ -22,10 +21,9 @@ bool create_threads(void) {
 
 void *handle_thread(void *arg) {
   (void)arg;
-  pthread_t current = pthread_self();
 
   while (RUNNING) {
-    Client *client;
+    Client *client = NULL;
     // mutex lock ensures that only one of the threads tries to connect and
     // handle a client
     pthread_mutex_lock(&mutex);
@@ -43,7 +41,6 @@ void *handle_thread(void *arg) {
     if (!client)
       continue;
 
-    printf("Currently in thread: %lu\n", (unsigned long)current);
     handle_client(client);
     close(client->fd);
     free_client(&client);

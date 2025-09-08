@@ -150,7 +150,7 @@ bool start_server(const int server_fd) {
     // Though it is not necessary here, as all ips will be mapped to ip6
     if ((client->fd = accept(server_fd, (struct sockaddr *)client->address,
                              &(client->address_len))) < 0) {
-      free(client);
+      free_client(&client);
 
       if (errno == EINTR && !RUNNING)
         break; // shutdown

@@ -1,5 +1,6 @@
 #include "../include/request.h"
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -70,12 +71,12 @@ bool handle_request(Client *client) {
   // have to split with carraige return now
   c = cut(c.tail, '\n'); // not assigning to http_ver, if the string is invalid
                          // using the default http_ver of the server
-  if (c.head.data[c.head.len - 1] == '\r')
+  if (c.head.len && c.head.data[c.head.len - 1] == '\r')
     c.head.len--; // this way malformed request that only use '\n' are also
                   // supported
 
   // returns 400 for HTTP/0.9
-  if (!c.head.data || !validate_http(&c.head)) {
+  if (!c.head.len || !c.head.data || !validate_http(&c.head)) {
     client->response_status =
         ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
     return err("Cutting & validating HTTP version", false);
@@ -177,30 +178,28 @@ bool set_connection(Str *connection, Str *request) {
 
   Cut c = {0};
   c.tail = *request;
+  size_t len = sizeof "Connection:" - 1;
 
   while (c.tail.len && c.tail.data) {
     c = cut(c.tail, '\n');
-    if (strncasecmp(c.head.data, "Connection:", (size_t)c.head.len) == 0)
+    if (strncasecmp(c.head.data, "Connection:", len) == 0)
       break;
   }
 
-  str_print(&c.head);
   if (!c.tail.len || !c.tail.data || !c.head.len || !c.head.data) // not found
     return false;
 
   // c.head contains the connection str
   // shifting to point to the header value
-  if (c.head.data[11] == ' ') {
-    c.head.data += 12;
-    c.head.len -= 12;
-  } else {
-    c.head.data += 11;
-    c.head.len -= 11;
-  }
+  size_t shift = len;
+  for (; isspace(c.head.data[shift]); shift++)
+    ;
+  c.head.data += shift;
+  c.head.len -= (ptrdiff_t)shift;
 
-  if (strncasecmp(c.head.data, "keep-alive", (size_t)c.head.len) == 0)
+  if (strncasecmp(c.head.data, "keep-alive", sizeof("keep-alive") - 1) == 0)
     *connection = STR("keep-alive");
-  else if (strncasecmp(c.head.data, "close", (size_t)c.head.len) == 0)
+  else if (strncasecmp(c.head.data, "close", sizeof("close") - 1) == 0)
     *connection = STR("close");
   else
     return false; // now the connection has to be set depending on the http

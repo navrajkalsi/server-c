@@ -3,3 +3,4 @@ server-c
 test.py
 test
 main
+*.o

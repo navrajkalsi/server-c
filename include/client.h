@@ -61,3 +61,6 @@ Client *dequeue_client(void);
 // initializes the client with malloc and fills it with default values of fields
 // user calls free
 Client *client_init(void);
+
+// prints the clients linked list
+void print_list(void);

@@ -62,6 +62,20 @@ function visit_path(path) {
 function dir_preview(response_text) {
   // Using innerHTML instead of textContent cause I want to render the ul element in the DOM and not just copy and paste the response in pre tag
   file_preview.innerHTML = response_text.substring(response_text.indexOf("<ul"), response_text.indexOf("</ul>") + 5);
+  let dir_entries_list = file_preview.firstElementChild;
+
+  // creating li elms for each entry
+  // though I separated the entries by \n in the server, browsers render a single space for all whitespace
+  const dir_entries = dir_entries_list.textContent.trim().split("\n");
+  dir_entries_list.textContent = "";
+
+  for (dir_entry of dir_entries) {
+    let dir_elm = document.createElement("li");
+    dir_elm.textContent = dir_entry;
+    file_preview.firstElementChild.appendChild(dir_elm);
+  }
+  // const temp = response_text.substring(response_text.indexOf("<ul"));
+  // text_preview(temp.substring(temp.indexOf(">") + 1, temp.indexOf("</")));
 }
 
 // Displays preview of an image by creating an <img>
