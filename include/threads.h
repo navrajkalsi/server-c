@@ -1,6 +1,4 @@
-#include "main.h"
-#include "response.h"
-#include <pthread.h>
+#pragma once
 
 // creates threads in the thread pool
 bool create_threads(void);

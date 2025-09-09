@@ -1,7 +1,6 @@
 #pragma once
 
 #include "client.h"
-#include <stddef.h>
 
 // Also used in response.c
 typedef enum { ICO, HTML, JS, ERR, LEN } STATIC_INDICES;

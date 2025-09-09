@@ -1,8 +1,14 @@
-#include "../include/threads.h"
-#include "../include/main.h"
 #include <errno.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <unistd.h>
+
+#include "../include/args.h"
+#include "../include/client.h"
+#include "../include/main.h"
+#include "../include/threads.h"
+#include "../include/utils.h"
 
 pthread_t thread_pool[THREAD_POOL_SIZE];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -21,6 +27,8 @@ bool create_threads(void) {
 
 void *handle_thread(void *arg) {
   (void)arg;
+  if (config.debug)
+    printf("Currently in thread: %lu\n", (unsigned long)pthread_self());
 
   while (RUNNING) {
     Client *client = NULL;
@@ -46,7 +54,7 @@ void *handle_thread(void *arg) {
     free_client(&client);
   }
 
-  return NULL;
+  return (void *)print_debug("Thread handled");
 }
 
 void cleanup_pool(void) {
@@ -70,5 +78,5 @@ void cleanup_pool(void) {
   }
   pthread_mutex_unlock(&mutex);
 
-  return;
+  return (void)print_debug("Cleaned up the server pool & closed all clients");
 }

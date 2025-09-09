@@ -1,8 +1,6 @@
 #pragma once
 
-#include "main.h"
-#include <stdbool.h>
-#include <stddef.h>
+#include "stddef.h"
 
 // Huge time saver string struct
 typedef struct {
@@ -65,3 +63,7 @@ void print_banner(void);
 // I am really proud of this function, as this is my first recursive function
 // that I conceived in my brain and made to work
 bool int_to_string(int i, Str *out);
+
+// Prints if debug mode is set to on
+// always returns true
+bool print_debug(const char *msg);

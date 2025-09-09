@@ -1,18 +1,17 @@
-#include "../include/server.h"
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "../include/args.h"
 #include "../include/client.h"
 #include "../include/main.h"
 #include "../include/threads.h"
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include "../include/utils.h"
 
 bool setup_server(Config *cfg, int *server_fd) {
   if (!cfg)
@@ -118,12 +117,13 @@ bool setup_server(Config *cfg, int *server_fd) {
     errno = EADDRNOTAVAIL;
     return err("Getting server file descriptor", true);
   }
+  print_debug("Server file descriptor acquired");
 
   if (listen(*server_fd, BACKLOG) < 0)
     return err("Listening", true);
 
   printf("Server Listening on port: %s\n\n", cfg->port);
-  return true;
+  return print_debug("Server setup");
 }
 
 bool start_server(const int server_fd) {
@@ -151,7 +151,6 @@ bool start_server(const int server_fd) {
     if ((client->fd = accept(server_fd, (struct sockaddr *)client->address,
                              &(client->address_len))) < 0) {
       free_client(&client);
-
       if (errno == EINTR && !RUNNING)
         break; // shutdown
 
@@ -169,30 +168,19 @@ bool start_server(const int server_fd) {
       break;
     }
 
+    print_debug("Accepted a new connection");
+
     pthread_mutex_lock(&mutex);
     enqueue_client(client);
     pthread_cond_signal(&condition_var); // now a thread is signalled and that
                                          // thread aquires the lock
     pthread_mutex_unlock(&mutex);
-
-    // bool status;
-    // if (!(status = handle_client(client)))
-    //   err("Handling client", true);
-
-    // if (close(client->fd) < 0) {
-    //   err("Closing client", true);
-    //   break;
-    // }
-
-    // free_client(&client);
-
-    // if (!status) {
-    //   break;
-    // }
   }
 
   if (close(server_fd) < 0)
     return err("Closing server", true);
+
+  print_debug("Server File Descriptor closed");
 
   // If RUNNING is still true, then a function call errored out
   // If a function errored due to interrupt signal, then the signal handler

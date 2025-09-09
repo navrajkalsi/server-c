@@ -1,13 +1,17 @@
-#include "../include/request.h"
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include "../include/client.h"
+#include "../include/main.h"
+#include "../include/request.h"
+#include "../include/utils.h"
 
 // Array of filepaths to be served statically
 const char *STATIC_FILES[] = {ICON_ICO, SERVER_HTML, SERVER_JS, ERROR_HTML};
@@ -39,6 +43,7 @@ bool handle_request(Client *client) {
         ASSIGN_IF_NULL(client->response_status, "405 Method Not Allowed");
     err("Invalid method", false);
   }
+  print_debug("Parsed method");
 
   // Cutting path
   c = cut(c.tail, ' ');
@@ -66,6 +71,7 @@ bool handle_request(Client *client) {
   }
   // The path exists and points to a valid file or dir which i can access
   // first I was using realpath :)
+  print_debug("Parsed request path");
 
   // getting http version of the request
   // have to split with carraige return now
@@ -90,6 +96,7 @@ bool handle_request(Client *client) {
                                // supported, otherwise v1.1 is used
     client->response_status = ASSIGN_IF_NULL(client->response_status, "200 OK");
   }
+  print_debug("Parsed HTTP version");
 
   if (!set_connection(&client->connection, &c.tail))
     if (equals(&client->http_ver, &STR("HTTP/1.0"))) // setting default for 1.0
@@ -103,7 +110,8 @@ bool validate_method(const Str *method) {
     return null_ptr("Invalid method pointer");
 
   // Just checking for GET
-  return equals(method, &(STR("GET")));
+  return equals(method, &(STR("GET"))) &&
+         print_debug("Request method validated");
 }
 
 // Does depth checking, thanks to: skeeto, again
@@ -157,7 +165,7 @@ bool validate_path(Str *path, bool *is_static) {
 
   // now the path is final for static resources request and user requests
   // check if the path exists and if i can acces it
-  return path_exists(path->data);
+  return path_exists(path->data) && print_debug("Validated request path");
 }
 
 bool validate_http(const Str *http_ver) {
@@ -167,7 +175,7 @@ bool validate_http(const Str *http_ver) {
   if (equals(http_ver, &STR("HTTP/1.0")) ||
       equals(http_ver, &STR("HTTP/1.1")) ||
       equals(http_ver, &STR("HTTP/2.0")) || equals(http_ver, &STR("HTTP/3.0")))
-    return true;
+    return print_debug("Validated HTTP version");
 
   return false;
 }
@@ -205,7 +213,7 @@ bool set_connection(Str *connection, Str *request) {
     return false; // now the connection has to be set depending on the http
                   // version
 
-  return true;
+  return print_debug("Set connection header");
 }
 
 bool path_exists(const char *path) {
@@ -243,7 +251,7 @@ bool check_static(Str *path) {
       // Tried concatenating here, but did not work cause i need string
       // literals
       *path = STATIC_PATHS[i];
-      return true;
+      return print_debug("Static request detected");
     }
 
   return false;

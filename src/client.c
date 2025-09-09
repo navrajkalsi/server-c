@@ -1,16 +1,14 @@
-#include "../include/client.h"
-#include "../include/request.h"
-#include "../include/response.h"
-#include <arpa/inet.h>
-#include <poll.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
-#include <sys/socket.h>
 #include <unistd.h>
+
+#include "../include/client.h"
+#include "../include/main.h"
+#include "../include/request.h"
+#include "../include/response.h"
 
 static ClientNode *head = NULL;
 static ClientNode *tail = NULL;
@@ -30,8 +28,10 @@ bool handle_client(Client *client) {
              10000); // 10s timeout for any incoming data selects only 1 fd
     if (!result ||
         (poll_fd.revents &
-         (POLLERR | POLLHUP))) // no data to read, can return to handle_thread
+         (POLLERR | POLLHUP))) { // no data to read, can return to handle_thread
+      print_debug("Nothing to read, returning to thread handler");
       break;
+    }
 
     if (result < 0)
       return err("Poll", true);
@@ -46,6 +46,8 @@ bool handle_client(Client *client) {
 
     // Only headers are considered, cause I currently support GET only, anything
     // after TRAILER is disregarded
+    print_debug("Reading from client");
+
     while ((read_status = read(client->fd, buf_ptr, BUF_MAX - total_read - 1)) >
            0) {
       total_read += (size_t)read_status;
@@ -59,9 +61,11 @@ bool handle_client(Client *client) {
 
     // if there is nothing to read, client closes
     if (buf == buf_ptr &&
-        !total_read) // I always receive an empty request in the beginning,
-                     // as the browser connects and immediately disconnects
-      break;         // this is not a bug, just how TCP works
+        !total_read) { // I always receive an empty request in the beginning,
+                       // as the browser connects and immediately disconnects
+      print_debug("Empty request");
+      break; // this is not a bug, just how TCP works
+    }
 
     if (read_status != -1 &&
         end_ptr) { // everything is alright, got the headers
@@ -76,19 +80,24 @@ bool handle_client(Client *client) {
         // Only supporting GET requests for now
         // so don't need any body
         total_read = (size_t)(end_ptr - buf);
+      print_debug("Received valid request");
     } else if (read_status != -1 && !end_ptr) { // could not find end of headers
       // first looking if i got the first request line, if not the request is
       // just not a valid request probably (bad request) looking for a linebreak
       // "\r\n" for request line
-      client->response_status =
-          !strstr(buf, LINEBREAK.data)
-              ? STR("400 Bad Request") // no need to parse request now
-              : STR("431 Request Header Fields Too Large");
-    } else {
-      err("Reading request", true);
-      // Reading next request now
-      // continue;
-    }
+      if (strstr(buf, LINEBREAK.data)) {
+        client->response_status = STR("431 Request Header Fields Too Large");
+        print_debug("Request is too large, but request line is present");
+      } else {
+        client->response_status = STR("400 Bad Request");
+        print_debug("Request is invalid, could not locate the request line");
+      }
+      // client->response_status =
+      //     !strstr(buf, LINEBREAK.data)
+      //         ? STR("400 Bad Request") // no need to parse request now
+      //         : STR("431 Request Header Fields Too Large");
+    } else
+      return err("Reading request", true);
 
     // At this point total_read is the correct len of data in buf
     // request can only be used in this scope!!
@@ -106,7 +115,7 @@ bool handle_client(Client *client) {
 
   } while (equals(&client->connection, &STR("keep-alive")));
 
-  return true;
+  return print_debug("Handled client");
 }
 
 void print_client(const Client *client) {
@@ -137,6 +146,8 @@ void free_client(Client **client) {
 
   free_client_members(*client);
   free(*client);
+
+  print_debug("Freed client");
 }
 
 void free_client_members(Client *client) {
@@ -158,6 +169,8 @@ void free_client_members(Client *client) {
 
   if (client->date.len)
     str_free(&client->date);
+
+  print_debug("Freed client members");
 }
 
 void enqueue_client(Client *client) {
@@ -179,6 +192,8 @@ void enqueue_client(Client *client) {
     tail->next = new_node;
 
   tail = new_node;
+
+  print_debug("Enqueued new client");
 }
 
 Client *dequeue_client(void) {
@@ -193,6 +208,8 @@ Client *dequeue_client(void) {
     tail = NULL;
 
   free(temp);
+
+  print_debug("Dequeued client");
   return result;
 }
 
@@ -216,16 +233,19 @@ Client *client_init(void) {
   client->address_len = sizeof(struct sockaddr_storage);
   client->request_static = false;
 
+  print_debug("Initialized a new client");
+
   return client;
 }
 
 void print_list(void) {
   ClientNode *current = head;
+  int count = 1;
 
   if (!current)
     return;
 
   do
-    printf("Fd: %d\n", current->client->fd);
-  while ((current = current->next));
+    printf("Client %d FD: %d\n", count, current->client->fd);
+  while ((current = current->next) && ++count);
 }

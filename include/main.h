@@ -11,7 +11,6 @@
 #define THREAD_POOL_SIZE 25
 
 // Utils.c specific
-extern bool RUNNING; // For shutdown handling
 #define ERR_STR (Str){NULL, 0}
 #define STR(str)                                                               \
   (Str) { str, (long)(sizeof(str) - 1) }
@@ -45,6 +44,6 @@ extern bool RUNNING; // For shutdown handling
 // Date len is the length of a date for http header plus a null terminator
 #define DATE_LEN 30
 
-// Threads.c specific
+extern bool RUNNING; // for shutdown handling and thread cleaning
 extern pthread_mutex_t mutex;
 extern pthread_cond_t condition_var;

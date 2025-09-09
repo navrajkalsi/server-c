@@ -1,13 +1,17 @@
+#include <stdbool.h>
+
 #include "../include/args.h"
+#include "../include/main.h"
 #include "../include/server.h"
 #include "../include/threads.h"
 
 bool RUNNING = true;
+Config config;
 
 int main(int argc, char *argv[]) {
   print_banner();
 
-  Config config = parse_args(argc, argv);
+  config = parse_args(argc, argv);
 
   int server_fd;
   if (!setup_server(&config, &server_fd))

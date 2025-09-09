@@ -1,9 +1,7 @@
-#include "../include/response.h"
-#include "../include/request.h"
 #include <dirent.h>
 #include <errno.h>
 #include <magic.h>
-#include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +9,13 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "../include/args.h"
+#include "../include/client.h"
+#include "../include/main.h"
+#include "../include/request.h"
+#include "../include/response.h"
+#include "../include/utils.h"
 
 bool handle_response(Client *client) {
   if (!client)
@@ -40,7 +45,8 @@ bool handle_response(Client *client) {
   if (!set_date(client))
     err("Setting date", false);
 
-  // print_client(client);
+  if (config.debug)
+    print_client(client);
 
   if (!write_response(client)) // No hope now, have to return :)
     return err("Writing response", true);
@@ -58,7 +64,7 @@ bool write_response(Client *client) {
   if (!write_response_body(client))
     return err("Writing body", true);
 
-  return true;
+  return print_debug("Wrote full response to the client FD");
 }
 
 bool write_str(const Client *client, const Str *str) {
@@ -103,7 +109,7 @@ bool write_headers(const Client *client) {
     if (!write_str(client, headers[i]))
       return err("Writing response headers", true);
 
-  return true;
+  return print_debug("Wrote all headers to the client FD");
 }
 
 bool write_response_body(const Client *client) {
@@ -134,7 +140,7 @@ bool write_response_body(const Client *client) {
       if (!write_str(client, dynamic_array[i]))
         return err("Writing dynamic response body", true);
   }
-  return true;
+  return print_debug("Wrote full response body to the client FD");
 }
 
 bool generate_response(Client *client) {
@@ -156,8 +162,6 @@ bool generate_response(Client *client) {
     errno = EIO;
     return err("Accessing file/directory", true);
   }
-
-  return true;
 }
 
 bool generate_error(Client *client) {
@@ -211,7 +215,7 @@ bool read_dynamic_file(Client *client) {
       return err("Setting content type", true);
   }
 
-  return true;
+  return print_debug("Read dynamic file (user requested) to the buffer");
 }
 
 // Deals with every user requested directory and calls read_static_file cause
@@ -276,7 +280,7 @@ bool read_directory(Client *client) {
       !find_delimiter(client))
     return err("Handling static file", false);
 
-  return true;
+  return print_debug("Read user request directory contents into the buffer");
 }
 
 // Only to be called by read_directory and for now is just meant to read
@@ -318,7 +322,8 @@ bool read_static_file(Client *client, const char *filepath) {
   if (!set_content_type(client, filepath))
     return err("Setting content type", true);
 
-  return true;
+  return print_debug("Read static file (not directly user requested, usually) "
+                     "into the buffer");
 }
 
 void print_response(const Str *response_array[], int array_len) {
@@ -333,7 +338,7 @@ bool find_delimiter(Client *client) {
   for (ptrdiff_t i = 0; i < client->static_response_body.len; i++)
     if (memcmp(client->static_response_body.data + i, HTTP_DELIMITER, 1) == 0) {
       client->static_delimiter = i;
-      return true;
+      return print_debug("Delimiter found");
     }
   return err("Delimiter not found", false);
 }
@@ -364,7 +369,7 @@ bool set_content_type(Client *client, const char *path) {
   if (mime) {
     client->content_type.data = mime;
     client->content_type.len = (ptrdiff_t)strlen(mime);
-    return true;
+    return print_debug("Content type set");
   } else
     return err("Magic file", false);
 }
@@ -382,7 +387,7 @@ bool set_content_length(Client *client) {
   if (!final_len || !int_to_string((int)final_len, &client->content_length))
     return err("Converting length to string", false);
 
-  return true;
+  return print_debug("Content length set");
 }
 
 bool set_date(Client *client) {
@@ -402,5 +407,6 @@ bool set_date(Client *client) {
 
   // strftime returns 0 if write buffer is small
   return (bool)strftime(client->date.data, (size_t)DATE_LEN,
-                        "%a, %d %b %Y %H:%M:%S GMT", &tm);
+                        "%a, %d %b %Y %H:%M:%S GMT", &tm) &&
+         print_debug("Date header set");
 }

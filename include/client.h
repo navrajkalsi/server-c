@@ -1,8 +1,8 @@
 #pragma once
 
-#include "server.h"
 #include "utils.h"
 #include <stddef.h>
+#include <sys/socket.h>
 
 // Client struct, store information on a client: file descriptor (returned by
 // accept function) ,client_address (filled by accept()) which can be parsed to

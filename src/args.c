@@ -1,15 +1,14 @@
-#include "../include/args.h"
-#include "../include/utils.h"
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "../include/args.h"
+#include "../include/main.h"
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug

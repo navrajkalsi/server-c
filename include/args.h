@@ -1,9 +1,7 @@
 #pragma once
 
-#include "main.h"
 #include "utils.h"
 #include <netinet/in.h>
-#include <stdint.h>
 
 typedef struct {
   Str root_dir;
@@ -11,6 +9,8 @@ typedef struct {
   bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;
 } Config;
+
+extern Config config;
 
 // Parses args from the command line, if any
 // Errors and exits if the root_dir passed does not exist

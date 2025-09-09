@@ -1,12 +1,13 @@
-#include "../include/utils.h"
-#include "../include/main.h"
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "../include/args.h"
+#include "../include/main.h"
+#include "../include/utils.h"
 
 Str str_init(char *in) {
   return !in ? ERR_STR
@@ -121,6 +122,7 @@ bool null_ptr(const char *msg) {
 }
 
 void print_banner(void) {
+  return;
   puts("\n\n");
   puts("  ███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗        ██████╗");
   puts("  ██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗      ██╔════╝");
@@ -152,5 +154,11 @@ bool int_to_string(int i, Str *out) {
   // Setting pos to 0 to reuse later
   if (pos == out->len)
     pos = 0;
+  return true;
+}
+
+bool print_debug(const char *msg) {
+  if (config.debug)
+    puts(msg);
   return true;
 }

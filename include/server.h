@@ -1,9 +1,6 @@
 #pragma once
 
 #include "args.h"
-#include "main.h"
-#include "utils.h"
-#include <sys/socket.h>
 
 // Supported request methods enum
 // typedef enum { GET } RequestMethod; // For future use
