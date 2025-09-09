@@ -8,10 +8,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "../include/client.h"
-#include "../include/main.h"
-#include "../include/request.h"
-#include "../include/utils.h"
+#include "client.h"
+#include "main.h"
+#include "request.h"
+#include "utils.h"
 
 // Array of filepaths to be served statically
 const char *STATIC_FILES[] = {ICON_ICO, SERVER_HTML, SERVER_JS, ERROR_HTML};

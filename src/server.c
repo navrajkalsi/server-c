@@ -7,11 +7,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../include/args.h"
-#include "../include/client.h"
-#include "../include/main.h"
-#include "../include/threads.h"
-#include "../include/utils.h"
+#include "args.h"
+#include "client.h"
+#include "main.h"
+#include "threads.h"
+#include "utils.h"
 
 bool setup_server(Config *cfg, int *server_fd) {
   if (!cfg)
@@ -136,8 +136,9 @@ bool start_server(const int server_fd) {
   // In the loop, a function call can error in two ways, if SIGTERM or SIGINT
   // is received || the function itself errors
   // In former, errno would be EINTR
+  Client *client = client_init(); // only reinitialized if accept does not error
+
   while (RUNNING) {
-    Client *client = client_init();
     if (!client) {
       err("Initialize client", true);
       break;
@@ -150,7 +151,6 @@ bool start_server(const int server_fd) {
     // Though it is not necessary here, as all ips will be mapped to ip6
     if ((client->fd = accept(server_fd, (struct sockaddr *)client->address,
                              &(client->address_len))) < 0) {
-      free_client(&client);
       if (errno == EINTR && !RUNNING)
         break; // shutdown
 
@@ -172,10 +172,13 @@ bool start_server(const int server_fd) {
 
     pthread_mutex_lock(&mutex);
     enqueue_client(client);
+    client = client_init();              // only now i need a new client
     pthread_cond_signal(&condition_var); // now a thread is signalled and that
                                          // thread aquires the lock
     pthread_mutex_unlock(&mutex);
   }
+
+  free_client(&client); // This client did not make it to the queue
 
   if (close(server_fd) < 0)
     return err("Closing server", true);

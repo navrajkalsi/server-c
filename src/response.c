@@ -10,12 +10,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../include/args.h"
-#include "../include/client.h"
-#include "../include/main.h"
-#include "../include/request.h"
-#include "../include/response.h"
-#include "../include/utils.h"
+#include "args.h"
+#include "client.h"
+#include "main.h"
+#include "request.h"
+#include "response.h"
+#include "utils.h"
 
 bool handle_response(Client *client) {
   if (!client)

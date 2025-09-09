@@ -5,10 +5,10 @@
 #include <sys/poll.h>
 #include <unistd.h>
 
-#include "../include/client.h"
-#include "../include/main.h"
-#include "../include/request.h"
-#include "../include/response.h"
+#include "client.h"
+#include "main.h"
+#include "request.h"
+#include "response.h"
 
 static ClientNode *head = NULL;
 static ClientNode *tail = NULL;

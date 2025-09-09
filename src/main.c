@@ -1,9 +1,9 @@
 #include <stdbool.h>
 
-#include "../include/args.h"
-#include "../include/main.h"
-#include "../include/server.h"
-#include "../include/threads.h"
+#include "args.h"
+#include "main.h"
+#include "server.h"
+#include "threads.h"
 
 bool RUNNING = true;
 Config config;

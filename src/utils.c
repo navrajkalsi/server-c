@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../include/args.h"
-#include "../include/main.h"
-#include "../include/utils.h"
+#include "args.h"
+#include "main.h"
+#include "utils.h"
 
 Str str_init(char *in) {
   return !in ? ERR_STR

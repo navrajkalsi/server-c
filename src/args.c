@@ -7,8 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../include/args.h"
-#include "../include/main.h"
+#include "args.h"
+#include "main.h"
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug

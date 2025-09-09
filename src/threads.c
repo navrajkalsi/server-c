@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "../include/args.h"
-#include "../include/client.h"
-#include "../include/main.h"
-#include "../include/threads.h"
-#include "../include/utils.h"
+#include "args.h"
+#include "client.h"
+#include "main.h"
+#include "threads.h"
+#include "utils.h"
 
 pthread_t thread_pool[THREAD_POOL_SIZE];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;

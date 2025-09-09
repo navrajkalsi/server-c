@@ -28,7 +28,7 @@ INSTALL ?= install
 NAME := server-c
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
-# CFLAGS ?= -Wall -Werror -Wextra -g -Iinclude
+# CFLAGS ?= -Wall -Werror -Wextra -Iinclude
 # Dev Flags
 CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined -Iinclude
 LDFLAGS ?= -lmagic -lpthread
@@ -52,23 +52,27 @@ all: $(NAME)
 # $^ is for all the dependencies
 # $< is for input src file
 $(NAME): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "Building..."
+	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "Build complete!"
 
 # Compiling each .c file to .o
 src/%.o: src/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 # Builds first
 install: all
-	mkdir -p $(DESTDIR)$(bindir)
-	$(INSTALL) -m 0755 $(NAME) $(DESTDIR)$(bindir)/$(NAME)
-	mkdir -p $(DESTDIR)$(datadir)/$(NAME)/static
-	$(INSTALL) -m 0644 static/* $(DESTDIR)$(datadir)/$(NAME)/static
+	@mkdir -p $(DESTDIR)$(bindir)
+	@$(INSTALL) -m 0755 $(NAME) $(DESTDIR)$(bindir)/$(NAME)
+	@mkdir -p $(DESTDIR)$(datadir)/$(NAME)/static
+	@$(INSTALL) -m 0644 static/* $(DESTDIR)$(datadir)/$(NAME)/static
 	@echo "You are ready to SERVE!"
 
 uninstall:
-	rm -r $(DESTDIR)$(bindir)/$(NAME)
-	rm -rf $(DESTDIR)$(datadir)/$(NAME)
+	@rm -r $(DESTDIR)$(bindir)/$(NAME)
+	@rm -rf $(DESTDIR)$(datadir)/$(NAME)
+	@echo "Uninstalled Server-C"
 
 clean:
-	rm -f $(NAME) $(OBJ)
+	@rm -f $(NAME) $(OBJ)
+	@echo "Removed build files"
