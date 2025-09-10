@@ -384,7 +384,9 @@ bool set_content_length(Client *client) {
                             : client->dynamic_response_body.len;
 
   // the str is freed in free_client
-  if (!final_len || !int_to_string((int)final_len, &client->content_length))
+  if (!final_len)
+    client->content_length = str_init("0");
+  else if (!int_to_string((int)final_len, &client->content_length))
     return err("Converting length to string", false);
 
   return print_debug("Content length set");

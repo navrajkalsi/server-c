@@ -91,9 +91,9 @@ void print_usage(char *prg) {
 
 void print_args(unsigned int args_parsed, const Config *cfg) {
   if (args_parsed)
-    printf("Parsed %u Argument(s).\n", args_parsed);
+    printf("\nParsed %u Argument(s).", args_parsed);
 
-  printf("Root Directory set to: %s\n"
+  printf("\nRoot Directory set to: %s\n"
          "Port set to: %s\n"
          "Debug Mode set to: %s\n",
          cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off");

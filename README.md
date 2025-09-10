@@ -1,9 +1,9 @@
 # Server-C
 
-![Server Demo](./media/demo.gif)
+![Server Demo](./media/demo2.gif)
 
 Lightweight HTTP Server in C.
-Serves static files, support MIME type detection, handles directory listing (__with vim motions__) and file previews with proper HTTP responses.
+Serves static files, support MIME type detection, handles directory listing (__with basic vim motions__) and file previews with proper HTTP responses.
 
 ## Motivation
 
@@ -18,11 +18,13 @@ and MIME types, and the C language in general.
 
 ## Worth-Mentioning Points
 * Supports __Linux & most UNIX systems__.
+* Uses __threads__ for concurrent processing of requests.
 * __MIME detection__ ensures proper previewing of file, done using `libmagic`.
 * Supported formats for preview: __Text, Images, PDFs__.
-* Informs if a requested file is __empty or unsupported for preview__(can be downloaded in that case), with help of MIME types.
+* Informs if a requested file is __empty or unsupported for preview__(can be downloaded in that case), with help of content-type header.
+* Supports __keep-alive__ connections with socket timeouts.
 * __Directory listing__ is done by using a static html file & javascript.
-* __Custom 404 page__ is served in case of a 404 response.
+* __Custom Error Page__ is served in case of any error, which changes dynamically based on the response status code.
 * __Clean Shutdown__ is done by handling interrupt and kill signals.
 
 ## Quick Start
@@ -73,8 +75,8 @@ The following flags can be used to alter the behaviour of the program:
 
 | __Flag__ | __Flag Description__|
 |:----:|:---------------:|
-|-a| Listen to connections on all interfaces |
-|-d| Debug Mode (Prints all functions calls to the console |
+|-a| Listen to connections on all interfaces of the machine |
+|-d| Debug Mode (Prints all functions calls to the console) |
 |-h| Print usage on command line |
 |-p| Port to listen on |
 |-r| Root of the directory to serve |
@@ -87,7 +89,7 @@ By default:
 * Serves the __current working directory__.
 * Uses port __1419__.
 * Listens to only __localhost__ requests.
-* Prints the __request method & path__ on the console.
+* Prints the __client's address, request method & path__ on the console.
 
 ### Additional Usage Example
 ```bash
@@ -97,4 +99,7 @@ server-c -r /DIR_TO_SERVE -p 8080 -a
 * Here, since we have passed -a flag, we can access files on your machine from different devices by visiting the IP address of your machine and targeting the appropriate port.
 
 ### Demo
-![Server Demo](./media/demo.gif)
+![Server Demo](./media/demo2.gif)
+
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md) for changes made.
