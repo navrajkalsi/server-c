@@ -155,20 +155,20 @@ void free_client_members(Client *client) {
     return;
 
   if (client->dynamic_response_body.len)
-    str_free(&client->dynamic_response_body);
+    str_data_free(&client->dynamic_response_body);
 
   // both response bodies would be malloced at some point if they exist
   if (client->static_response_body.len)
-    str_free(&client->static_response_body);
+    str_data_free(&client->static_response_body);
 
   if (client->content_type.len)
-    str_free(&client->content_type);
+    str_data_free(&client->content_type);
 
   if (client->content_length.len)
-    str_free(&client->content_length);
+    str_data_free(&client->content_length);
 
   if (client->date.len)
-    str_free(&client->date);
+    str_data_free(&client->date);
 
   print_debug("Freed client members");
 }
@@ -229,9 +229,10 @@ Client *client_init(void) {
   client->connection = STR("keep-alive");
   // client->response_status = STR("500 Internal Server Error");
   client->fd = -1;
-  client->address = NULL;
-  client->address_len = sizeof(struct sockaddr_storage);
+  client->address_len = sizeof(client->address);
   client->request_static = false;
+
+  memset(&client->address, 0, sizeof(client->address));
 
   print_debug("Initialized a new client");
 

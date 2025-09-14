@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 // creates threads in the thread pool
 bool create_threads(void);
 

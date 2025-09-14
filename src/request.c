@@ -144,7 +144,7 @@ bool validate_path(Str *path, bool *is_static) {
   // Checking if the file exists
   // To make a path like: '////////file' work
   // Shifting path.data so only one / remains in the beginning
-  while (path->data[1] == '/') {
+  while (path->len > 1 && path->data[1] == '/') {
     path->data++;
     path->len--;
   }
@@ -229,7 +229,7 @@ void print_request(const Client *client) {
   // a ip6 mapped ip4 address
   // Therefore, no need for dealing with both here individually
   char ipstr[INET6_ADDRSTRLEN];
-  inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)(client->address))->sin6_addr),
+  inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&client->address)->sin6_addr),
             ipstr, sizeof ipstr);
 
   // printf("%s: %.*s", ipstr, (int)client->request.len,

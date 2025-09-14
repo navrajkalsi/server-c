@@ -11,6 +11,7 @@
 // (filled by parse_request()), pointer to request_path (also filled by
 // parse_request())
 typedef struct {
+  struct sockaddr_storage address; // address info of the client
   Str request;
   Str request_method;
   Str request_path;
@@ -24,10 +25,9 @@ typedef struct {
   Str static_response_body;
   Str response_status;
   Str content_type;
-  Str content_length;               // to be used as content-length header
-  Str connection;                   // keep-alive or close
-  Str date;                         // current date and time
-  struct sockaddr_storage *address; // address info of the client
+  Str content_length;         // to be used as content-length header
+  Str connection;             // keep-alive or close
+  Str date;                   // current date and time
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;

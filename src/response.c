@@ -209,7 +209,7 @@ bool read_dynamic_file(Client *client) {
   // In order for scripts to work the mime should be application/javascript
   // Dealing with _server.js only here
   if (equals(&client->request_path, &STATIC_PATHS[JS]))
-    client->content_type = str_init("application/javascript");
+    client->content_type = str_data_malloc("application/javascript");
   else {
     if (!set_content_type(client, NULL))
       return err("Setting content type", true);
@@ -227,54 +227,67 @@ bool read_directory(Client *client) {
   struct dirent *dir_entry;
   DIR *dir;
   Str *body = &client->dynamic_response_body;
+  StrList dir_list = {.head = NULL, .tail = NULL};
 
   // First calculating the final size, I don't prefer fixed length buffers
   // Again, the request path is null terminated
   if ((dir = opendir(client->request_path.data))) {
     while ((dir_entry = readdir(dir))) {
       // skipping current and previous dir entries
-      if (memcmp(dir_entry->d_name, "..", 2) != 0 &&
-          memcmp(dir_entry->d_name, ".", 1) != 0) {
-        body->len += (ptrdiff_t)strlen(dir_entry->d_name);
-        body->len +=
-            dir_entry->d_type == DT_DIR
-                ? 2
-                : 1; // Adding 1 for \n and another 1 incase the entry is of a
-                     // directory Then I need a '/' at the end to distinguish
-                     // between dirs and files in the frontend
+      if (!strcmp(dir_entry->d_name, ".") || !strcmp(dir_entry->d_name, ".."))
+        continue;
+
+      Str *dir_str = str_malloc(dir_entry->d_name);
+      if (!dir_str) {
+        list_free(&dir_list);
+        closedir(dir);
+        return err("Calculating body length", true);
       }
-    }
 
-    if (body->len && !(body->data = (char *)malloc((size_t)body->len))) {
-      body->len = 0;
-      closedir(dir);
-      return err("Malloc dynamic response", true);
-    }
+      if (dir_entry->d_type == DT_DIR)
+        dir_str->data[dir_str->len++] =
+            '/'; // replacing null terminator to / in case of dir, to
+                 // distinguish between dirs & files in the frontend
 
-    rewinddir(dir);
+      body->len += dir_str->len + 1; // incrementing to accomodate \n delimiter
 
-    u_long pos = 0;
-    // Actually reading dirs
-    while ((dir_entry = readdir(dir))) {
-      size_t dir_len = strlen(dir_entry->d_name);
-      // skipping current and previous dir entries
-      if (memcmp(dir_entry->d_name, "..", 2) != 0 &&
-          memcmp(dir_entry->d_name, ".", 1) != 0 &&
-          pos + dir_len < (u_long)body->len) {
-        memcpy(body->data + pos, dir_entry->d_name, dir_len);
-        if (dir_entry->d_type == DT_DIR) {
-          // Adding / incase the entry is a dir
-          memcpy(body->data + pos + dir_len, "/\n", 2);
-          pos += dir_len + 2;
-        } else {
-          memcpy(body->data + pos + dir_len, "\n", 1);
-          pos += dir_len + 1;
-        }
+      StrNode *dir_node = str_node_malloc(dir_str);
+      if (!dir_node) {
+        str_free(&dir_str);
+        list_free(&dir_list);
+        closedir(dir);
+        return err("Calculating body length", true);
       }
+
+      list_append(&dir_list, dir_node);
     }
     closedir(dir);
   } else
     return err("Opening directory", true);
+
+  if (body->len && dir_list.tail &&
+      !(body->data = (char *)malloc((size_t)body->len))) {
+    body->len = 0;
+    list_free(&dir_list);
+    return err("Malloc dynamic response", true);
+  }
+
+  // writing entries to the body
+  StrNode *current = dir_list.head;
+  StrNode *next = NULL;
+  u_long pos = 0;
+
+  while (current) {
+    next = current->next;
+    if (pos + current->str->len + 1 > (u_long)body->len)
+      break;
+    memcpy(body->data + pos, current->str->data, current->str->len);
+    pos += current->str->len;
+    body->data[pos++] = '\n';
+
+    node_free(current);
+    current = next;
+  }
 
   if (!read_static_file(client, STATIC_PATHS[HTML].data) ||
       !find_delimiter(client))
@@ -384,9 +397,7 @@ bool set_content_length(Client *client) {
                             : client->dynamic_response_body.len;
 
   // the str is freed in free_client
-  if (!final_len)
-    client->content_length = str_init("0");
-  else if (!int_to_string((int)final_len, &client->content_length))
+  if (!int_to_string((int)final_len, &client->content_length))
     return err("Converting length to string", false);
 
   return print_debug("Content length set");

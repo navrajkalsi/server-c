@@ -144,12 +144,10 @@ bool start_server(const int server_fd) {
       break;
     }
 
-    client->address = &(struct sockaddr_storage){0};
-
     // sockaddr_storage is better to store addresses than sockaddr, if ip v is
     // not known beforehand
     // Though it is not necessary here, as all ips will be mapped to ip6
-    if ((client->fd = accept(server_fd, (struct sockaddr *)client->address,
+    if ((client->fd = accept(server_fd, (struct sockaddr *)&client->address,
                              &(client->address_len))) < 0) {
       if (errno == EINTR && !RUNNING)
         break; // shutdown

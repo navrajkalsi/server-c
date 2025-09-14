@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stddef.h"
+#include <stdbool.h>
 
 // Huge time saver string struct
 typedef struct {
@@ -9,6 +10,16 @@ typedef struct {
 } Str;
 
 // Thanks to: skeeto on Reddit:)
+typedef struct strNode {
+  struct strNode *next;
+  Str *str;
+} StrNode;
+
+typedef struct {
+  StrNode *head;
+  StrNode *tail;
+} StrList;
+
 typedef struct {
   Str head;
   Str tail;
@@ -16,9 +27,15 @@ typedef struct {
 } Cut;
 
 // Converts a null terminated string to a malloced Str
-Str str_init(char *in);
+// The str is NOT MALLOCED, just the data
+Str str_data_malloc(const char *in);
 
-void str_free(Str *in);
+// The str and data BOTH ARE MALLOCED
+Str *str_malloc(const char *in);
+
+void str_data_free(Str *in);
+
+void str_free(Str **in);
 
 void str_print(const Str *in);
 
@@ -52,6 +69,8 @@ bool setup_sig_handler(void);
 
 void handle_shutdown(int sig);
 
+void handle_sigpipe(int sig);
+
 // Always sets errno to EFAULT & returns false
 // to be returned it null ptrs are passed to a func
 bool null_ptr(const char *msg);
@@ -67,3 +86,15 @@ bool int_to_string(int i, Str *out);
 // Prints if debug mode is set to on
 // always returns true
 bool print_debug(const char *msg);
+
+void node_free(StrNode *node);
+
+void list_free(StrList *list);
+
+void list_append(StrList *list, StrNode *node);
+
+StrNode *str_node_malloc(Str *str);
+
+void str_node_free(StrNode **node);
+
+void list_print(StrList *list);

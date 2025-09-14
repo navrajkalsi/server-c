@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <stdbool.h>
 
 // Args.c specific
 #define DEFAULT_PORT "1419"
