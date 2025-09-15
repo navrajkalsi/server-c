@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <magic.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -227,15 +228,42 @@ bool read_directory(Client *client) {
   struct dirent *dir_entry;
   DIR *dir;
   Str *body = &client->dynamic_response_body;
+  Str *path = &client->request_path;
   StrList dir_list = {.head = NULL, .tail = NULL};
 
   // First calculating the final size, I don't prefer fixed length buffers
   // Again, the request path is null terminated
-  if ((dir = opendir(client->request_path.data))) {
+  if ((dir = opendir(path->data))) {
     while ((dir_entry = readdir(dir))) {
       // skipping current and previous dir entries
       if (!strcmp(dir_entry->d_name, ".") || !strcmp(dir_entry->d_name, ".."))
         continue;
+
+      // if the dir contains an index.html, serving that instead of listing
+      // files
+      if (!strcmp(dir_entry->d_name, "index.html")) {
+        print_debug("The directory contains index.html");
+        list_free(&dir_list);
+        closedir(dir);
+
+        // the path should be null terminated, for reading file to work
+        ptrdiff_t org_len = path->len;
+        path->len += sizeof("/index.html");
+
+        char new_path[path->len], *org_path = path->data;
+
+        memcpy(new_path, path->data, org_len);
+        memcpy(new_path + org_len - 1, "/index.html", sizeof("/index.html"));
+        path->data = new_path;
+
+        bool status = read_dynamic_file(client);
+
+        // resetting str vars
+        path->data = org_path;
+        path->len = org_len;
+
+        return status;
+      }
 
       Str *dir_str = str_malloc(dir_entry->d_name);
       if (!dir_str) {

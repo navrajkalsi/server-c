@@ -216,10 +216,13 @@ void list_free(StrList *list) {
     return;
 
   StrNode *current = list->head;
+  StrNode *next = NULL;
 
-  do
+  while (current) {
+    next = current->next;
     node_free(current);
-  while ((current = current->next));
+    current = next;
+  }
 }
 
 void list_append(StrList *list, StrNode *node) {
