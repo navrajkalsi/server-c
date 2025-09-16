@@ -26,6 +26,7 @@ and MIME types, and the C language in general.
 * __Directory listing__ is done by using a static html file & javascript.
 * __Custom Error Page__ is served in case of any error, which changes dynamically based on the response status code.
 * __Clean Shutdown__ is done by handling interrupt and kill signals.
+* __URL Decoding__ of ASCII chars from hex digits.
 
 ## Quick Start
 
@@ -71,7 +72,7 @@ __STATIC_DIR CAN ONLY BE CHANGED DURING COMPILATION__, i.e., during `make`, as i
 __If `server-c` command is not found after installation, the directory in which the binary got installed is not on the PATH.
 ADD THE MAKE INSTALLATION DIRECTORY TO THE PATH AND TRY AGAIN.__
 
-The following flags can be used to alter the behaviour of the program:
+The following __flags__ can be used to alter the behaviour of the program:
 
 | __Flag__ | __Flag Description__|
 |:----:|:---------------:|
@@ -80,6 +81,12 @@ The following flags can be used to alter the behaviour of the program:
 |-h| Print usage on command line |
 |-p| Port to listen on |
 |-r| Root of the directory to serve |
+
+The following __url param__ can be used to alter the behaviour, when serving a directory:
+
+| __Param__ | __true__ | __false__ |
+|:----:|:----:|:----:|
+| show_dir | Always list directory contents. Ignores index.html, if found. | (__default__) List directory contents, if no index.html is found. Otherwise, serves index.html when requesting directory. |
 
 ### Default Usage
 ```bash
@@ -90,6 +97,7 @@ By default:
 * Uses port __1419__.
 * Listens to only __localhost__ requests.
 * Prints the __client's address, request method & path__ on the console.
+* Serves __index.html__, if a directory is requested and index.html is present.
 
 ### Additional Usage Example
 ```bash

@@ -58,3 +58,14 @@
 
 ### Deprecated
 - Forking.
+
+## [2.1]
+### Changed
+- Resolved file listing bug for files starting with a period.
+- Size of dir contents is calculated and the entries are now managed by a linked list.
+
+### Added
+- SIGPIPE signal handling.
+- Support for % encoded ASCII chars in the URL.
+- + can also be used for a space in the URL.
+- URL parameter to change the directory and index.html file serving behaviour.
