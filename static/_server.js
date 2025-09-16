@@ -188,7 +188,11 @@ async function make_request() {
   // May contain '//' if fetching directories
   fetch_url = simplify_url(fetch_url);
 
-  const response = await fetch(fetch_url, { signal: abort_controller.signal });
+  const params = new URLSearchParams();
+  if (selected_file.textContent.endsWith("/"))
+    params.append("show_dir", "true");
+
+  const response = await fetch(`${fetch_url}?${params}`, { signal: abort_controller.signal });
   response_content_type = response.headers.get("Content-Type");
   if (response_content_type == null)
     return;

@@ -16,6 +16,15 @@ bool validate_path(Str *path, bool *is_static);
 
 bool validate_http(const Str *http_ver);
 
+// removes excessive '/'s and checks for current dir request
+bool simplify_path(Str *path);
+
+// decodes an url by converting hex digits to ascii chars
+// does not support utf-8 yet
+bool decode_path(Str *path);
+
+bool parse_params(Client *client, const Str *params);
+
 // finds "connection" header in request, returns false if not found
 // otherwise sets the connection to version default
 bool set_connection(Str *connection, Str *request);

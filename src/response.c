@@ -241,19 +241,19 @@ bool read_directory(Client *client) {
 
       // if the dir contains an index.html, serving that instead of listing
       // files
-      if (!strcmp(dir_entry->d_name, "index.html")) {
+      if (!client->show_dir && !strcmp(dir_entry->d_name, "index.html")) {
         print_debug("The directory contains index.html");
         list_free(&dir_list);
         closedir(dir);
 
-        // the path should be null terminated, for reading file to work
         ptrdiff_t org_len = path->len;
-        path->len += sizeof("/index.html");
+        path->len += strlen("/index.html");
 
-        char new_path[path->len], *org_path = path->data;
+        // the path should be null terminated, for reading file to work
+        char new_path[path->len + 1], *org_path = path->data;
 
         memcpy(new_path, path->data, org_len);
-        memcpy(new_path + org_len - 1, "/index.html", sizeof("/index.html"));
+        memcpy(new_path + org_len, "/index.html", sizeof "/index.html");
         path->data = new_path;
 
         bool status = read_dynamic_file(client);

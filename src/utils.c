@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,16 +88,16 @@ Cut cut(Str str, char sep) {
   return ret;
 }
 
-bool contains(const Str *str, const char *chars) {
+ptrdiff_t contains(const Str *str, const char *chars) {
   ptrdiff_t len = (ptrdiff_t)strlen(chars);
   if (!str->len || !str->data || !len || len > str->len)
-    return false;
+    return -1;
 
   for (int i = 0; i < str->len - len; i++)
     if (memcmp(str->data + i, chars, (size_t)len) == 0)
-      return true;
+      return i;
 
-  return false;
+  return -1;
 }
 
 bool err(const char *msg, bool print_errno) {
@@ -196,8 +197,10 @@ bool int_to_string(int i, Str *out) {
 }
 
 bool print_debug(const char *msg) {
-  if (config.debug)
+  if (config.debug) {
+    printf("\t -> ");
     puts(msg);
+  }
   return true;
 }
 

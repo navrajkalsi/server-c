@@ -33,6 +33,8 @@ typedef struct {
   int fd;
   socklen_t address_len;
   bool request_static;
+  bool show_dir; // from url param, defualts to previewing dir, rather than
+                 // serving index.html
 } Client;
 
 // Linked list node for clients, for threading

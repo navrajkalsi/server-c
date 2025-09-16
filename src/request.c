@@ -1,8 +1,11 @@
 #include <arpa/inet.h>
+#include <asm-generic/errno-base.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -45,9 +48,11 @@ bool handle_request(Client *client) {
   }
   print_debug("Parsed method");
 
-  // Cutting path
+  // Cutting path & params
   c = cut(c.tail, ' ');
-  if (!(client->request_path = c.head)
+  Cut path_cut = cut(c.head, '?'); // separating path & params
+
+  if (!(client->request_path = path_cut.head)
            .data) { // Request is not a valid http request
     client->response_status =
         ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
@@ -58,7 +63,8 @@ bool handle_request(Client *client) {
   if (!validate_path(
           &client->request_path,
           &client->request_static)) { // Path is not valid for some reason
-    if (errno == EINVAL)              // path is invalid, does not start with /
+    if (errno == EINVAL) // path is invalid, does not start with / or failed to
+                         // decode or simplify
       client->response_status =
           ASSIGN_IF_NULL(client->response_status, "400 Bad Request");
     else if (errno == EACCES)
@@ -72,6 +78,13 @@ bool handle_request(Client *client) {
   // The path exists and points to a valid file or dir which i can access
   // first I was using realpath :)
   print_debug("Parsed request path");
+
+  // Checking params
+  if (path_cut.found) {
+    if (!parse_params(client, &path_cut.tail))
+      err("Parsing params", false);
+    print_debug("Parsed params");
+  }
 
   // getting http version of the request
   // have to split with carraige return now
@@ -141,7 +154,33 @@ bool validate_path(Str *path, bool *is_static) {
   }
 
   // now the path is checked to not go above the root
-  // Checking if the file exists
+
+  if (!simplify_path(path)) {
+    if (!errno)
+      errno = EINVAL;
+    return err("Simplifying URL", false);
+  }
+
+  // decoding ascii chars
+  if (!decode_path(path)) {
+    if (!errno)
+      errno = EINVAL;
+    return err("Decoding URL", false);
+  }
+
+  // now comparing against the static filepaths
+  // this also sets the path to the final ABSOLUTE path of the file
+  *is_static = check_static(path);
+
+  // now the path is final for static resources request and user requests
+  // check if the path exists and if i can acces it
+  return path_exists(path->data) && print_debug("Validated request path");
+}
+
+bool simplify_path(Str *path) {
+  if (!path)
+    return null_ptr("Invalid path pointer");
+
   // To make a path like: '////////file' work
   // Shifting path.data so only one / remains in the beginning
   while (path->len > 1 && path->data[1] == '/') {
@@ -152,20 +191,66 @@ bool validate_path(Str *path, bool *is_static) {
   // shifting by -1 and adding null pointer to use stat()
   for (int i = 0; i < path->len - 1; i++)
     path->data[i] = path->data[i + 1];
-  path->data[path->len - 1] = '\0';
+  path->data[--path->len] = '\0';
 
-  // if the path is null after shifting and len was one, that means current
-  // directory is requested and request path was '/'
-  if (*(path->data) == '\0' && path->len == 1)
+  // if the path is null after shifting and len was one (now 0 after removing
+  // /), that means current directory is requested and request path was '/'
+  if (*(path->data) == '\0' && path->len == 0)
     *path = STR("./");
 
-  // now comparing against the static filepaths
-  // this also sets the path to the final ABSOLUTE path of the file
-  *is_static = check_static(path);
+  return true;
+}
 
-  // now the path is final for static resources request and user requests
-  // check if the path exists and if i can acces it
-  return path_exists(path->data) && print_debug("Validated request path");
+bool decode_path(Str *path) {
+  if (!path)
+    return null_ptr("Invalid path pointer");
+
+  ptrdiff_t pos = 0;
+
+  // ascii chars contains only two hex digits after %
+  while (pos < path->len) {
+    if (pos < path->len - 2 && path->data[pos] == '%') { // decoding %
+      char *end = NULL;
+      const char encoded[3] = {path->data[pos + 1], path->data[pos + 2], '\0'};
+      long decoded = strtol(encoded, &end, 16);
+
+      if (!decoded && *end != '\0')
+        return err("Converting from hex str to int", false);
+
+      // decoded will now contain the decimal form of the ascii char
+      path->data[pos++] = (char)decoded;
+
+      // moving chars over
+      memmove(path->data + pos, path->data + pos + 2,
+              path->len - pos - 1); // also moving \0
+      path->len -= 2;
+    } else if (path->data[pos] == '+') // + to space
+      path->data[pos++] = ' ';
+    else
+      ++pos;
+  }
+
+  return true;
+}
+
+bool parse_params(Client *client, const Str *params) {
+  if (!client || !params)
+    null_ptr("Invalid client or params pointer");
+
+  // checking individual params, in future could change for cut implementation
+  ptrdiff_t index = contains(params, "show_dir");
+
+  if (index == -1)
+    return true;
+  // moving ahead of =
+  index += sizeof "show_dir";
+
+  if (params->len - index < 5 && memcmp(params->data + index, "true", 4) == 0)
+    client->show_dir = true;
+  else
+    client->show_dir = false;
+
+  return true;
 }
 
 bool validate_http(const Str *http_ver) {

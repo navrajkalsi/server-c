@@ -231,6 +231,7 @@ Client *client_init(void) {
   client->fd = -1;
   client->address_len = sizeof(client->address);
   client->request_static = false;
+  client->show_dir = false;
 
   memset(&client->address, 0, sizeof(client->address));
 

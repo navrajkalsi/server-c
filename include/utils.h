@@ -2,6 +2,7 @@
 
 #include "stddef.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 // Huge time saver string struct
 typedef struct {
@@ -54,7 +55,8 @@ Str drophead(Str str, ptrdiff_t drop);
 Cut cut(Str str, char sep);
 
 // checks if str contains chars anywhere
-bool contains(const Str *str, const char *chars);
+// returns the index (if found), otherwise 0
+ptrdiff_t contains(const Str *str, const char *chars);
 
 // returns Str after combining two Strs
 Str join(Str a, Str b);
