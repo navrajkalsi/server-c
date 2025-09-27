@@ -17,13 +17,14 @@
 #include "utils.h"
 
 // Array of filepaths to be served statically
-const char *STATIC_FILES[] = {ICON_ICO, SERVER_HTML, SERVER_JS, ERROR_HTML};
+const char *STATIC_FILES[STATIC_LEN] = {ICON_ICO, SERVER_HTML, SERVER_JS,
+                                        ERROR_HTML};
 
 // Arrays of absolute paths of each file
 // HAVE TO MAINTAIN BOTH arrays in the future
 // found out macro concatention only works with string literals and not even
 // char *s
-const Str STATIC_PATHS[] = {
+const Str STATIC_PATHS[STATIC_LEN] = {
     STR(STATIC_PATH(ICON_ICO)), STR(STATIC_PATH(SERVER_HTML)),
     STR(STATIC_PATH(SERVER_JS)), STR(STATIC_PATH(ERROR_HTML))};
 
@@ -331,7 +332,7 @@ bool check_static(Str *path) {
   if (!path)
     return null_ptr("Invalid path pointer");
 
-  for (u_long i = 0; i < LEN; i++)
+  for (u_long i = 0; i < STATIC_LEN; i++)
     if (!strcmp(path->data, STATIC_FILES[i])) {
       // Tried concatenating here, but did not work cause i need string
       // literals

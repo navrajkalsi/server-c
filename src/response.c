@@ -18,6 +18,11 @@
 #include "response.h"
 #include "utils.h"
 
+// should be in the order of CUSTOM_MIME_INDICES enum
+const char *CUSTOM_MIME_EXT[CUSTOM_MIMES_LEN] = {".css", ".js"};
+const char *CUSTOM_MIMES[CUSTOM_MIMES_LEN] = {"text/css",
+                                              "application/javascript"};
+
 bool handle_response(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
@@ -206,15 +211,9 @@ bool read_dynamic_file(Client *client) {
 
   fclose(file);
 
-  // Libmagic sets MIME of .js files to text/plain
-  // In order for scripts to work the mime should be application/javascript
-  // Dealing with _server.js only here
-  if (equals(&client->request_path, &STATIC_PATHS[JS]))
-    client->content_type = str_data_malloc("application/javascript");
-  else {
-    if (!set_content_type(client, NULL))
-      return err("Setting content type", true);
-  }
+  // Libmagic sets MIME of .js and .css files to text/plain
+  if (!set_content_type(client, NULL))
+    return err("Setting content type", true);
 
   return print_debug("Read dynamic file (user requested) to the buffer");
 }
@@ -398,16 +397,27 @@ bool set_content_type(Client *client, const char *path) {
     return err("Magic load", false);
   }
 
-  char *mime;
-  if (path)
-    mime = strdup(magic_file(magic, path));
-  else
-    mime = strdup(magic_file(magic, client->request_path.data));
+  // setting path if not provided
+  if (!path)
+    path = client->request_path.data;
+
+  char *mime = strdup(magic_file(magic, path));
 
   // copied the mime before closing
   magic_close(magic);
 
   if (mime) {
+    // dealing with CUSTOM MIMES here
+    for (int i = 0; i < CUSTOM_MIMES_LEN; i++) {
+      if (strlen(path) > strlen(CUSTOM_MIME_EXT[i])) // path is longer than ext
+        if (strstr(path, CUSTOM_MIME_EXT[i])) {      // path contains ext
+          free(mime);
+          mime = strdup(CUSTOM_MIMES[i]); // freed in client, have to malloc
+          break;
+        }
+      continue;
+    }
+
     client->content_type.data = mime;
     client->content_type.len = (ptrdiff_t)strlen(mime);
     return print_debug("Content type set");

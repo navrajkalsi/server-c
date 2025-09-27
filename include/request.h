@@ -3,9 +3,9 @@
 #include "client.h"
 
 // Also used in response.c
-typedef enum { ICO, HTML, JS, ERR, LEN } STATIC_INDICES;
-extern const char *STATIC_FILES[];
-extern const Str STATIC_PATHS[];
+typedef enum { ICO, HTML, JS, ERR, STATIC_LEN } STATIC_INDICES;
+extern const char *STATIC_FILES[STATIC_LEN];
+extern const Str STATIC_PATHS[STATIC_LEN];
 
 bool handle_request(Client *client);
 
