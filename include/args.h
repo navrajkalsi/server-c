@@ -8,6 +8,7 @@ typedef struct {
   char *port;
   bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;
+  bool https; // was ssl initialized successfully, handled in server.c
 } Config;
 
 extern Config config;

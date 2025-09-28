@@ -8,7 +8,7 @@
 
 // Calls all funcitons for setting up SSL
 // returns the ssl context object
-SSL_CTX *setup_ssl();
+SSL_CTX *setup_ssl(void);
 
 // Calls all the functions, setting up the server and sets the file
 // descriptor for the server socket

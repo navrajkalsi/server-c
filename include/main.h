@@ -10,6 +10,13 @@
 // Server.c specific
 #define BACKLOG 256
 #define THREAD_POOL_SIZE 25
+// SSL files, can be changed during compilation
+#ifndef DOMAIN_CERT
+#define DOMAIN_CERT "/etc/ssl/domain.cert"
+#endif
+#ifndef PRIVATE_KEY
+#define PRIVATE_KEY "/etc/ssl/private.key"
+#endif
 
 // Utils.c specific
 #define ERR_STR (Str){NULL, 0}

@@ -15,7 +15,8 @@ Config parse_args(int argc, char *argv[]) {
   Config cfg = {.root_dir = {NULL, 0},
                 .port = DEFAULT_PORT,
                 .accept_all = false,
-                .debug = false};
+                .debug = false,
+                .https = false}; // https is handled in server.c
 
   int arg; // cannot be char, although the switch will compare it to char,
            // because getopt() can return -1 as well, therefore we will be

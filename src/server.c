@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/prov_ssl.h>
 #include <openssl/ssl.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -15,12 +18,68 @@
 #include "threads.h"
 #include "utils.h"
 
-SSL_CTX *setup_ssl() {
-  SSL_load_error_strings(); // registers error strings for libcrypto & libssl
-  OpenSSL_add_ssl_algorithms(); // registers avaliable encryption algos
+SSL_CTX *setup_ssl(void) {
+  // registers error strings for libcrypto & libssl
+  // registers encryption algos and loads ciphers
+  if (OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
+                           OPENSSL_INIT_LOAD_CRYPTO_STRINGS,
+                       NULL) != 1) {
+    err("Initializing OpenSSL", false);
+    return NULL;
+  }
 
-  const SSL_METHOD *method = TLS_server_method();
-  return SSL_CTX_new(method);
+  const SSL_METHOD *method = TLS_server_method(); // enables TLS support
+  SSL_CTX *context = SSL_CTX_new(
+      method); // this context stores all the certs & keys for the connections
+
+  if (!context) {
+    err("Generating SSL context object", false);
+    ERR_print_errors_fp(stderr);
+    return NULL;
+  }
+
+  print_debug("SSL Context generated.");
+
+  // setting minimum version for TLS (TLS 1.2)
+  if (SSL_CTX_set_min_proto_version(context, TLS1_2_VERSION) != 1) {
+    err("Setting Minimum TLS version", false);
+    goto cleanup;
+  }
+
+  // sets up using strong cipher suites & disables old weaker ones
+  if (SSL_CTX_set_cipher_list(context,
+                              "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4") != 1) {
+    err("Setting cipher list", false);
+    goto cleanup;
+  }
+
+  // loading cert
+  if (SSL_CTX_use_certificate_file(context, DOMAIN_CERT, SSL_FILETYPE_PEM) !=
+      1) {
+    err("Using SSL certificate", false);
+    goto cleanup;
+  }
+
+  // loading key
+  if (SSL_CTX_use_PrivateKey_file(context, PRIVATE_KEY, SSL_FILETYPE_PEM) !=
+      1) {
+    err("Using Private Key", false);
+    goto cleanup;
+  }
+
+  // sanity check, if key & cert match
+  if (SSL_CTX_check_private_key(context) != 1) {
+    err("Private Key mismatch", false);
+    goto cleanup;
+  }
+
+  print_debug("Certficate & Key loaded");
+  return context;
+
+cleanup:
+  ERR_print_errors_fp(stderr);
+  SSL_CTX_free(context);
+  return NULL;
 }
 
 bool setup_server(Config *cfg, int *server_fd) {
@@ -53,9 +112,9 @@ bool setup_server(Config *cfg, int *server_fd) {
 
   do {
     // Creating a socket for the appropriate ip version
-    // This returns a socket file descriptor as an int, which is like a two way
-    // door. This is through which all communication takes place. It takes in
-    // three params:
+    // This returns a socket file descriptor as an int, which is like a two
+    // way door. This is through which all communication takes place. It takes
+    // in three params:
     // 1. Address/Protocol family
     // 2. Socket type (stream or datagram, mainly)
     // 3. Protocol family (0: OS chooses the appropriate one, TCP for stream
@@ -64,7 +123,8 @@ bool setup_server(Config *cfg, int *server_fd) {
                              current->ai_protocol)) < 0)
       continue;
 
-    // Have to setsocketopt to allow dual-stack setup supporting both IPv4 & v6
+    // Have to setsocketopt to allow dual-stack setup supporting both IPv4 &
+    // v6
     if (setsockopt(*server_fd, IPPROTO_IPV6, IPV6_V6ONLY, &(int){0},
                    sizeof(int)) < 0) {
       close(*server_fd);
