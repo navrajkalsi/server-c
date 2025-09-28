@@ -1,7 +1,9 @@
+#include "server.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <openssl/ssl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +14,14 @@
 #include "main.h"
 #include "threads.h"
 #include "utils.h"
+
+SSL_CTX *setup_ssl() {
+  SSL_load_error_strings(); // registers error strings for libcrypto & libssl
+  OpenSSL_add_ssl_algorithms(); // registers avaliable encryption algos
+
+  const SSL_METHOD *method = TLS_server_method();
+  return SSL_CTX_new(method);
+}
 
 bool setup_server(Config *cfg, int *server_fd) {
   if (!cfg)
