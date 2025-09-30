@@ -223,7 +223,7 @@ bool decode_path(Str *path) {
 
       // moving chars over
       memmove(path->data + pos, path->data + pos + 2,
-              path->len - pos - 1); // also moving \0
+              (size_t)(path->len - pos - 1)); // also moving \0
       path->len -= 2;
     } else if (path->data[pos] == '+') // + to space
       path->data[pos++] = ' ';
@@ -244,7 +244,7 @@ bool parse_params(Client *client, const Str *params) {
   if (index == -1)
     return true;
   // moving ahead of =
-  index += sizeof "show_dir";
+  index += (ptrdiff_t)sizeof "show_dir";
 
   if (params->len - index < 5 && memcmp(params->data + index, "true", 4) == 0)
     client->show_dir = true;

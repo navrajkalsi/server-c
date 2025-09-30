@@ -8,7 +8,7 @@ typedef struct {
   char *port;
   bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;
-  bool https; // was ssl initialized successfully, handled in server.c
+  bool https; // should be true to use https
 } Config;
 
 extern Config config;
@@ -18,7 +18,7 @@ extern Config config;
 Config parse_args(int argc, char *argv[]);
 
 // Prints -h help
-void print_usage(char *prg);
+void print_usage(const char *prg);
 
 // Prints parsed args
 void print_args(unsigned int args_parsed, const Config *cfg);

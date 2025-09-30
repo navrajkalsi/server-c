@@ -24,20 +24,30 @@ includedir ?= $(prefix)/include
 INSTALL ?= install
 
 # Project Specific
-# obj could be skipped as only one file at this point
 NAME := server-c
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
-CFLAGS ?= -Wall -Werror -Wextra -Iinclude
+# CFLAGS ?= -Wall -Werror -Wextra -Iinclude
 # Dev Flags
-# CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined -Iinclude
-LDFLAGS ?= -lmagic -lpthread
+CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined -Iinclude
+LDFLAGS ?= -lmagic -lpthread -lssl -lcrypto
 # Static_Dir for server files
 STATIC_DIR ?= $(datadir)/$(NAME)/static
 # Static_Dir for development only, installs binary and static files in the same dir
 # Have to pass in absolute path in the program
 # STATIC_DIR = $(abspath $(DESTDIR)$(datadir)/$(NAME)/static)
 CFLAGS += -DSTATIC_DIR="\"$(STATIC_DIR)\""
+
+# custom domain certificate & private key
+# TO BE PASSED WHILE COMPILATION!
+ifdef DOMAIN_CERT
+	CFLAGS += -DDOMAIN_CERT="\"$(DOMAIN_CERT)\""
+endif
+
+ifdef PRIVATE_KEY
+	CFLAGS += -DPRIVATE_KEY="\"$(PRIVATE_KEY)\""
+endif
+
 CC = gcc
 
 # Defines that the labels are commands and not files to run

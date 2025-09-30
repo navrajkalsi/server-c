@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/prov_ssl.h>
 #include <openssl/ssl.h>
 #include <stdbool.h>
@@ -82,9 +83,13 @@ cleanup:
   return NULL;
 }
 
-bool setup_server(Config *cfg, int *server_fd) {
+bool setup_server(const Config *cfg, int *server_fd) {
   if (!cfg)
     return null_ptr("Invalid config pointer");
+
+  if (cfg->https)
+    if (!(ssl_context = setup_ssl()))
+      err("Unable to setup SSL, using HTTP", false);
 
   struct addrinfo hints, *out, *current;
 
@@ -192,7 +197,7 @@ bool setup_server(Config *cfg, int *server_fd) {
   if (listen(*server_fd, BACKLOG) < 0)
     return err("Listening", true);
 
-  printf("Server Listening on port: %s\n\n", cfg->port);
+  printf("\nServer Listening on port: %s\n\n", cfg->port);
   return print_debug("Server setup");
 }
 
@@ -265,6 +270,8 @@ bool start_server(const int server_fd) {
   }
 
   puts("\nShutting Down...\n");
+  SSL_CTX_free(ssl_context);
+  EVP_cleanup();
   cleanup_pool();
 
   return true;

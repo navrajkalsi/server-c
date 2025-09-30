@@ -25,7 +25,7 @@ Config parse_args(int argc, char *argv[]) {
   // ':' is required to tell if the flag requires an argument after the flag
   // in cmd line
   unsigned int args_parsed = 0; // For debugging
-  while ((arg = getopt(argc, argv, "adhp:r:")) != -1) {
+  while ((arg = getopt(argc, argv, "adhp:r:s")) != -1) {
     switch (arg) {
     case 'a':
       cfg.accept_all = true;
@@ -47,6 +47,10 @@ Config parse_args(int argc, char *argv[]) {
       if (!validate_root(optarg))
         err_n_die("Invalid root directory", true);
       cfg.root_dir = STR(optarg);
+      args_parsed++;
+      break;
+    case 's':
+      cfg.https = true;
       args_parsed++;
       break;
     case '?': // If an unknown flag or no argument is passed for an option
@@ -78,7 +82,7 @@ Config parse_args(int argc, char *argv[]) {
   return cfg;
 }
 
-void print_usage(char *prg) {
+void print_usage(const char *prg) {
   printf("\nUsage: %s [OPTIONS] [ARGS...]\n"
          "Options:\n"
          "-a             Accept Incoming Connections from all IPs, defaults "
@@ -86,7 +90,8 @@ void print_usage(char *prg) {
          "-d             Debug Mode, prints every major function call.\n"
          "-h             Print this help message.\n"
          "-p <port>      Port to listen on.\n"
-         "-r <directory> Directory to serve.\n",
+         "-r <directory> Directory to serve.\n"
+         "-s             Use HTTPS Protocol.\n",
          prg);
 }
 
@@ -96,8 +101,10 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
 
   printf("\nRoot Directory set to: %s\n"
          "Port set to: %s\n"
-         "Debug Mode set to: %s\n",
-         cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off");
+         "Debug Mode set to: %s\n"
+         "Protocol set to: %s\n",
+         cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off",
+         cfg->https ? "HTTPS" : "HTTP");
 
   cfg->accept_all
       ? puts("Server Accepting Incoming Connections from all IPs.\n")

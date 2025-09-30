@@ -24,7 +24,7 @@ Str *str_malloc(const char *in) {
   }
 
   ret->data = in ? strdup(in) : NULL;
-  ret->len = in ? strlen(in) : 0;
+  ret->len = in ? (ptrdiff_t)strlen(in) : 0;
 
   return ret;
 }
@@ -105,6 +105,7 @@ bool err(const char *msg, bool print_errno) {
   // if (print_errno && errno)
   //   fprintf(stderr, "Error: {\n\tCode: %d\n\tMessage: %s\n}\n", errno,
   //           strerror(errno));
+  fprintf(stderr, "\tE -> ");
   if (print_errno && errno)
     perror(msg);
   else
@@ -198,7 +199,7 @@ bool int_to_string(int i, Str *out) {
 
 bool print_debug(const char *msg) {
   if (config.debug) {
-    printf("\t -> ");
+    printf("\tD -> ");
     puts(msg);
   }
   return true;

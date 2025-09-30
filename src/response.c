@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <magic.h>
+#include <openssl/ssl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -80,8 +81,14 @@ bool write_str(const Client *client, const Str *str) {
   ptrdiff_t current = 0;
 
   while (str->len && current < str->len) {
-    long wrote =
-        write(client->fd, str->data + current, (size_t)(str->len - current));
+    long wrote = 0;
+    if (client->ssl) { // HTTPS
+      wrote = SSL_write(client->ssl, str->data + current,
+                        (int)(str->len - current));
+    } else { // HTTP
+      wrote =
+          write(client->fd, str->data + current, (size_t)(str->len - current));
+    }
     if (wrote < 0)
       return err("Writing response Str", true);
     current += wrote;
@@ -246,12 +253,12 @@ bool read_directory(Client *client) {
         closedir(dir);
 
         ptrdiff_t org_len = path->len;
-        path->len += strlen("/index.html");
+        path->len += (ptrdiff_t)strlen("/index.html");
 
         // the path should be null terminated, for reading file to work
         char new_path[path->len + 1], *org_path = path->data;
 
-        memcpy(new_path, path->data, org_len);
+        memcpy(new_path, path->data, (size_t)org_len);
         memcpy(new_path + org_len, "/index.html", sizeof "/index.html");
         path->data = new_path;
 
@@ -302,13 +309,13 @@ bool read_directory(Client *client) {
   // writing entries to the body
   StrNode *current = dir_list.head;
   StrNode *next = NULL;
-  u_long pos = 0;
+  ptrdiff_t pos = 0;
 
   while (current) {
     next = current->next;
-    if (pos + current->str->len + 1 > (u_long)body->len)
+    if (pos + current->str->len + 1 > body->len)
       break;
-    memcpy(body->data + pos, current->str->data, current->str->len);
+    memcpy(body->data + pos, current->str->data, (size_t)current->str->len);
     pos += current->str->len;
     body->data[pos++] = '\n';
 

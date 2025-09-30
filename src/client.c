@@ -1,3 +1,5 @@
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +11,7 @@
 #include "main.h"
 #include "request.h"
 #include "response.h"
+#include "utils.h"
 
 static ClientNode *head = NULL;
 static ClientNode *tail = NULL;
@@ -16,6 +19,25 @@ static ClientNode *tail = NULL;
 bool handle_client(Client *client) {
   if (!client)
     return null_ptr("Invalid client pointer");
+
+  // if ssl_context is NULL, https was set to false, or an error occurred while
+  // setting up SSL, using HTTP in that case
+  if (ssl_context) {
+    if (!(client->ssl = SSL_new(ssl_context))) {
+      ERR_print_errors_fp(stderr);
+      err("Creating SSL object for client", false);
+    } else if (!SSL_set_fd(client->ssl, client->fd)) {
+      ERR_print_errors_fp(stderr);
+      client->ssl =
+          NULL; // for determining HTTPS use in further funciton calls, as
+                // cannot set global ssl_context to NULL for other clients
+      err("Setting SSL file descriptor", false);
+    } else if (!SSL_accept(client->ssl)) {
+      ERR_print_errors_fp(stderr);
+      client->ssl = NULL;
+      err("TLS handshake", false);
+    }
+  }
 
   do {
     // freeing previous members and not the client struct itself
@@ -44,20 +66,32 @@ bool handle_client(Client *client) {
     long read_status = 0;
     char *end_ptr = NULL;
 
-    // Only headers are considered, cause I currently support GET only, anything
-    // after TRAILER is disregarded
+    // Only headers are considered, cause I currently support GET only,
+    // anything after TRAILER is disregarded
     print_debug("Reading from client");
 
-    while ((read_status = read(client->fd, buf_ptr, BUF_MAX - total_read - 1)) >
-           0) {
-      total_read += (size_t)read_status;
-      buf_ptr = &buf[total_read];
-      buf[total_read] = '\0';
+    if (client->ssl) // HTTPS
+      while ((read_status = SSL_read(client->ssl, buf_ptr,
+                                     (int)(BUF_MAX - total_read - 1))) > 0) {
+        total_read += (size_t)read_status;
+        buf_ptr = &buf[total_read];
+        buf[total_read] = '\0';
 
-      if ((end_ptr = strstr(buf, TRAILER.data)))
-        // No need to read more
-        break;
-    }
+        if ((end_ptr = strstr(buf, TRAILER.data)))
+          // No need to read more
+          break;
+      }
+    else // HTTP
+      while ((read_status =
+                  read(client->fd, buf_ptr, BUF_MAX - total_read - 1)) > 0) {
+        total_read += (size_t)read_status;
+        buf_ptr = &buf[total_read];
+        buf[total_read] = '\0';
+
+        if ((end_ptr = strstr(buf, TRAILER.data)))
+          // No need to read more
+          break;
+      }
 
     // if there is nothing to read, client closes
     if (buf == buf_ptr &&
@@ -71,9 +105,9 @@ bool handle_client(Client *client) {
         end_ptr) { // everything is alright, got the headers
       // Advancing the ptr by 4 chars to get past the request end
       // Then comparing with buf_ptr to see if they are same
-      // If same that means there is no body after headers and the total_read is
-      // the correct length, else change total_read to the length of only the
-      // request headers
+      // If same that means there is no body after headers and the total_read
+      // is the correct length, else change total_read to the length of only
+      // the request headers
       end_ptr = &(end_ptr[TRAILER.len]);
       if (end_ptr != buf_ptr)
         // Discard if there is any body in the request
@@ -83,7 +117,8 @@ bool handle_client(Client *client) {
       print_debug("Received valid request");
     } else if (read_status != -1 && !end_ptr) { // could not find end of headers
       // first looking if i got the first request line, if not the request is
-      // just not a valid request probably (bad request) looking for a linebreak
+      // just not a valid request probably (bad request) looking for a
+      // linebreak
       // "\r\n" for request line
       if (strstr(buf, LINEBREAK.data)) {
         client->response_status = STR("431 Request Header Fields Too Large");
@@ -141,11 +176,19 @@ void print_client(const Client *client) {
 }
 
 void free_client(Client **client) {
-  if (!client)
+  if (!client || !*client)
     return;
 
-  free_client_members(*client);
-  free(*client);
+  Client *to_free = *client;
+
+  // Do not put these in free_client_members, as ssl is to be freed only when
+  // conneciton is closed and not for every request, and the keep-alive loop
+  // frees the members on every request.
+  SSL_shutdown(to_free->ssl);
+  SSL_free(to_free->ssl);
+
+  free_client_members(to_free);
+  free(to_free);
 
   print_debug("Freed client");
 }
@@ -224,6 +267,8 @@ Client *client_init(void) {
             client->response_status = client->content_type =
                 client->content_length = client->date = ERR_STR;
   }
+
+  client->ssl = NULL;
 
   client->http_ver = STR("HTTP/1.1");
   client->connection = STR("keep-alive");

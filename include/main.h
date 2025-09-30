@@ -1,5 +1,6 @@
 #pragma once
 
+#include <openssl/crypto.h>
 #include <pthread.h>
 #include <stdbool.h>
 
@@ -12,10 +13,10 @@
 #define THREAD_POOL_SIZE 25
 // SSL files, can be changed during compilation
 #ifndef DOMAIN_CERT
-#define DOMAIN_CERT "/etc/ssl/domain.cert"
+#define DOMAIN_CERT "/etc/ssl/navrajkalsi/domain.cert"
 #endif
 #ifndef PRIVATE_KEY
-#define PRIVATE_KEY "/etc/ssl/private.key"
+#define PRIVATE_KEY "/etc/ssl/navrajkalsi/private.key"
 #endif
 
 // Utils.c specific
@@ -52,6 +53,7 @@
 // Date len is the length of a date for http header plus a null terminator
 #define DATE_LEN 30
 
-extern bool RUNNING; // for shutdown handling and thread cleaning
+extern bool RUNNING;         // for shutdown handling and thread cleaning
+extern SSL_CTX *ssl_context; // this is thread safe, no mutex required
 extern pthread_mutex_t mutex;
 extern pthread_cond_t condition_var;

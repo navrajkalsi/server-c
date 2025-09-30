@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils.h"
+#include <openssl/crypto.h>
 #include <stddef.h>
 #include <sys/socket.h>
 
@@ -28,6 +29,7 @@ typedef struct {
   Str content_length;         // to be used as content-length header
   Str connection;             // keep-alive or close
   Str date;                   // current date and time
+  SSL *ssl;                   // ssl object for client, in case of https
   ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
                               // requested
   int fd;

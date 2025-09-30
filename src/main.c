@@ -6,6 +6,7 @@
 #include "threads.h"
 
 bool RUNNING = true;
+SSL_CTX *ssl_context = NULL;
 Config config;
 
 int main(int argc, char *argv[]) {
