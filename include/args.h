@@ -1,10 +1,12 @@
 #pragma once
 
-#include "utils.h"
 #include <netinet/in.h>
+
+#include "utils.h"
 
 typedef struct {
   Str root_dir;
+  // Str redirect_target; // to redirect http to a https url
   char *port;
   bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;
@@ -30,5 +32,11 @@ bool validate_port(char *port, char **out);
 // permission, errno. Much better than realpath()
 bool validate_root(const char *root_dir);
 
+// Validates a url to redirect plain http to, should be a https url
+bool validate_target_url(const char *url);
+
 // Prints error for individual args
 void arg_error(char opt, const char *msg);
+
+// frees config Strs: root_dir & redirect_target
+void free_config_data(Config *cfg);

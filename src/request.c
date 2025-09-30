@@ -1,5 +1,4 @@
 #include <arpa/inet.h>
-#include <asm-generic/errno-base.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>

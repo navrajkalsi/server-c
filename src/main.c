@@ -4,6 +4,7 @@
 #include "main.h"
 #include "server.h"
 #include "threads.h"
+#include "utils.h"
 
 bool RUNNING = true;
 SSL_CTX *ssl_context = NULL;

@@ -2,13 +2,16 @@
 #include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "args.h"
 #include "main.h"
+#include "utils.h"
 
 Config parse_args(int argc, char *argv[]) {
   // Root dir, Acceptable incoming IP, Port, Debug
@@ -24,8 +27,8 @@ Config parse_args(int argc, char *argv[]) {
 
   // ':' is required to tell if the flag requires an argument after the flag
   // in cmd line
-  unsigned int args_parsed = 0; // For debugging
-  while ((arg = getopt(argc, argv, "adhp:r:s")) != -1) {
+  unsigned int args_parsed = 0; // For print debugging
+  while ((arg = getopt(argc, argv, "adhp:r:st:v")) != -1) {
     switch (arg) {
     case 'a':
       cfg.accept_all = true;
@@ -46,19 +49,30 @@ Config parse_args(int argc, char *argv[]) {
     case 'r':
       if (!validate_root(optarg))
         err_n_die("Invalid root directory", true);
-      cfg.root_dir = STR(optarg);
+      cfg.root_dir = str_data_malloc(optarg);
       args_parsed++;
       break;
     case 's':
       cfg.https = true;
       args_parsed++;
       break;
+    // case 't':
+    //   if (!validate_target_url(optarg))
+    //     err_n_die("Invalid HTTPS redirect URL", true);
+    //   cfg.redirect_target = str_data_malloc(optarg);
+    //   args_parsed++;
+    //   break;
+    case 'v':
+      printf("%s version: %f\n", argv[0], VERSION);
+      exit(EXIT_SUCCESS);
     case '?': // If an unknown flag or no argument is passed for an option
               // 'optopt' is set to the flag
       if (optopt == 'p')
         arg_error('p', "requires a valid port number");
       else if (optopt == 'r')
         arg_error('r', "requires a valid directory path");
+      else if (optopt == 't')
+        arg_error('t', "requires a valid HTTPS target url");
       else if (isprint(optopt))
         arg_error((char)optopt, "unknown option");
       else
@@ -69,6 +83,16 @@ Config parse_args(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
   }
+
+  // Checking if the -s & -t are used in combination
+  // the only purpose of -t is to redirect HTTP requests and
+  // is not to be used if the process is already configured to run HTTPS
+  // a separate process should handle HTTPS
+  // if (cfg.redirect_target.data && cfg.https)
+  //   err_n_die("Using HTTPS and passed a redirect target.\nPlease see
+  //   README.md "
+  //             "for more info.",
+  //             false);
 
   // If -r not supplied, then using ./ as root of server
   if (!cfg.root_dir.data) {
@@ -91,7 +115,9 @@ void print_usage(const char *prg) {
          "-h             Print this help message.\n"
          "-p <port>      Port to listen on.\n"
          "-r <directory> Directory to serve.\n"
-         "-s             Use HTTPS Protocol.\n",
+         "-s             Use HTTPS Protocol.\n"
+         "-t <redirect>  Redirect target for HTTP requests.\n"
+         "-v             Print the version number.\n",
          prg);
 }
 
@@ -105,6 +131,9 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
          "Protocol set to: %s\n",
          cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off",
          cfg->https ? "HTTPS" : "HTTP");
+
+  // if (cfg->redirect_target.data)
+  //   printf("Redirecting requests to: %s\n", cfg->redirect_target.data);
 
   cfg->accept_all
       ? puts("Server Accepting Incoming Connections from all IPs.\n")
@@ -155,6 +184,37 @@ int is_dir(const Str *root_dir) {
 
   errno = ENOTDIR;
   return -1;
+}
+
+bool validate_target_url(const char *url) {
+  if (!url)
+    return null_ptr("Invalid redirect target pointer");
+
+  size_t len = strlen(url);
+  size_t https_len = sizeof "https://" - 1;
+
+  // checking protocol
+  // url should be formatted like: "https://target.com" or "https://target.com/"
+  if (len < https_len || memcmp(url, "https://", https_len))
+    goto error;
+
+  // checking top level domain (.com, etc), should have atleast 2 chars and/or
+  // '/' and '\0', and should start atleast one char after the protocol end
+  const char *domain = url + https_len;  // shifting to domain
+  if (*domain == '\0' || *domain == '.') // if domain is not passed
+    goto error;
+
+  const char *dot = strchr(domain, '.');
+  // error if: dot does not exist, another dot is found, or TDL is less than 2
+  // chars long
+  if (!dot || strchr(dot + 1, '.') || strlen(dot + 1) < 2)
+    goto error;
+
+  return true;
+
+error:
+  errno = EINVAL;
+  return false;
 }
 
 void arg_error(char opt, const char *msg) {

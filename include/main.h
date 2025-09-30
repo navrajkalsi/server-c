@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 // Args.c specific
+#define VERSION 2.3
 #define DEFAULT_PORT "1419"
 #define DEFAULT_ROOT_DIR "./"
 

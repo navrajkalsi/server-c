@@ -1,4 +1,3 @@
-#include "server.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -16,6 +15,7 @@
 #include "args.h"
 #include "client.h"
 #include "main.h"
+#include "server.h"
 #include "threads.h"
 #include "utils.h"
 
