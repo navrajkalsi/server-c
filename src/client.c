@@ -184,8 +184,10 @@ void free_client(Client **client) {
   // Do not put these in free_client_members, as ssl is to be freed only when
   // conneciton is closed and not for every request, and the keep-alive loop
   // frees the members on every request.
-  SSL_shutdown(to_free->ssl);
-  SSL_free(to_free->ssl);
+  if (to_free->ssl) {
+    SSL_shutdown(to_free->ssl);
+    SSL_free(to_free->ssl);
+  }
 
   free_client_members(to_free);
   free(to_free);

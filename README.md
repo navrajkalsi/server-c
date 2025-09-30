@@ -42,7 +42,7 @@ AS OF NOW, THIS SERVER ONLY SUPPORTS UNIX SYSTEMS.
 ```bash
 #Ubuntu/Debian
 sudo apt update
-sudo apt install build-essential gcc libmagic-dev
+sudo apt install build-essential gcc libmagic-dev openssl
 ```
 
 * __Clone the Repository__
