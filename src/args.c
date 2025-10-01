@@ -28,7 +28,7 @@ Config parse_args(int argc, char *argv[]) {
   // ':' is required to tell if the flag requires an argument after the flag
   // in cmd line
   unsigned int args_parsed = 0; // For print debugging
-  while ((arg = getopt(argc, argv, "adhp:r:st:v")) != -1) {
+  while ((arg = getopt(argc, argv, "adhp:r:sv")) != -1) {
     switch (arg) {
     case 'a':
       cfg.accept_all = true;
@@ -56,12 +56,6 @@ Config parse_args(int argc, char *argv[]) {
       cfg.https = true;
       args_parsed++;
       break;
-    // case 't':
-    //   if (!validate_target_url(optarg))
-    //     err_n_die("Invalid HTTPS redirect URL", true);
-    //   cfg.redirect_target = str_data_malloc(optarg);
-    //   args_parsed++;
-    //   break;
     case 'v':
       printf("%s version: %f\n", argv[0], VERSION);
       exit(EXIT_SUCCESS);
@@ -84,21 +78,11 @@ Config parse_args(int argc, char *argv[]) {
     }
   }
 
-  // Checking if the -s & -t are used in combination
-  // the only purpose of -t is to redirect HTTP requests and
-  // is not to be used if the process is already configured to run HTTPS
-  // a separate process should handle HTTPS
-  // if (cfg.redirect_target.data && cfg.https)
-  //   err_n_die("Using HTTPS and passed a redirect target.\nPlease see
-  //   README.md "
-  //             "for more info.",
-  //             false);
-
   // If -r not supplied, then using ./ as root of server
   if (!cfg.root_dir.data) {
     if (!validate_root(DEFAULT_ROOT_DIR))
       err_n_die("Setting root directory failed.\n", true);
-    cfg.root_dir = STR(DEFAULT_ROOT_DIR);
+    cfg.root_dir = str_data_malloc(DEFAULT_ROOT_DIR);
   }
 
   print_args(args_parsed, &cfg);
@@ -116,7 +100,6 @@ void print_usage(const char *prg) {
          "-p <port>      Port to listen on.\n"
          "-r <directory> Directory to serve.\n"
          "-s             Use HTTPS Protocol.\n"
-         "-t <redirect>  Redirect target for HTTP requests.\n"
          "-v             Print the version number.\n",
          prg);
 }
@@ -131,9 +114,6 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
          "Protocol set to: %s\n",
          cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off",
          cfg->https ? "HTTPS" : "HTTP");
-
-  // if (cfg->redirect_target.data)
-  //   printf("Redirecting requests to: %s\n", cfg->redirect_target.data);
 
   cfg->accept_all
       ? puts("Server Accepting Incoming Connections from all IPs.\n")
@@ -186,6 +166,7 @@ int is_dir(const Str *root_dir) {
   return -1;
 }
 
+// for future, in case i want to redirect requests
 bool validate_target_url(const char *url) {
   if (!url)
     return null_ptr("Invalid redirect target pointer");
@@ -219,4 +200,12 @@ error:
 
 void arg_error(char opt, const char *msg) {
   fprintf(stderr, "Option '-%c' %s\nUse -h for usage.\n", opt, msg);
+}
+
+void free_config_data(Config *cfg) {
+  if (!cfg)
+    return;
+
+  if (cfg->root_dir.data)
+    str_data_free(&cfg->root_dir);
 }

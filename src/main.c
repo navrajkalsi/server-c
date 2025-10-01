@@ -25,5 +25,7 @@ int main(int argc, char *argv[]) {
   if (!start_server(server_fd))
     err_n_die("Server failed", true);
 
+  free_config_data(&config);
+
   return 0;
 }

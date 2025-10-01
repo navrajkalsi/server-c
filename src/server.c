@@ -270,7 +270,8 @@ bool start_server(const int server_fd) {
   }
 
   puts("\nShutting Down...\n");
-  SSL_CTX_free(ssl_context);
+  if (ssl_context)
+    SSL_CTX_free(ssl_context);
   EVP_cleanup();
   cleanup_pool();
 

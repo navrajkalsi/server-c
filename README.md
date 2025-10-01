@@ -2,8 +2,8 @@
 
 ![Server Demo](./media/demo2.gif)
 
-Lightweight HTTP Server in C.
-Serves static files, support MIME type detection, handles directory listing (__with basic vim motions__) and file previews with proper HTTP responses.
+Lightweight HTTP Server in C, with HTTPS support.
+Serves static files, supports MIME type detection, handles directory listing (__with basic vim motions__) and file previews with proper HTTP responses.
 
 ## Motivation
 
@@ -16,9 +16,14 @@ It would have been a lot easier to do this in JavaScript, but I chose C to get l
 get to have some experience with manipulating sockets, file-descriptors, HTTP Protocol with its headers
 and MIME types, and the C language in general.
 
+__Update__:
+Over the iterations, I have made this server capable of __`hosting a real website`__.
+Currently I am hosting my own website using this exact server here: [navrajkalsi.com](https://navrajkalsi.com)
+
 ## Worth-Mentioning Points
-* Supports __Linux & most UNIX systems__.
+* Supports __Linux & most UNIX systems__, as most libraries used are part of the C standard.
 * Uses __threads__ for concurrent processing of requests.
+* __TLS__ is used to support __HTTPS__, done using `openssl`.
 * __MIME detection__ ensures proper previewing of file, done using `libmagic`.
 * Supported formats for preview: __Text, Images, PDFs__.
 * Informs if a requested file is __empty or unsupported for preview__(can be downloaded in that case), with help of content-type header.
@@ -32,29 +37,40 @@ and MIME types, and the C language in general.
 
 AS OF NOW, THIS SERVER ONLY SUPPORTS UNIX SYSTEMS.
 
-* For `Windows`, __winsock__ API has to be implemented. Although, `WSL` can be used in that case.
+### **Windows**
+For `Windows`, __winsock__ API has to be implemented. Although, `WSL` can be used in that case.
 
-* For `Linux`:
+### **Linux** or **WSL**:
 
-### Install Dependencies
+<details>
+<summary>Install Dependencies</summary>
 
-`GCC` is used as the compiler & `libmagic` is required for MIME detection.
-```bash
-#Ubuntu/Debian
-sudo apt update
-sudo apt install build-essential gcc libmagic-dev openssl
-```
+The following dependencies are required to build and run the program on Linux:
+* `gcc`: C Compiler
+* `make`: Project build
+* `libmagic`: MIME detection
+* `openssl`: TLS handling & HTTPS support
 
-* __Clone the Repository__
+__If using a package manager, please check to see the exact names of these programs for your distro.__
+</details>
+
+<details>
+<summary>Download the source</summary>
+
 ``` bash
 git clone https://github.com/navrajkalsi/server-c
 cd server-c
 ```
-* __Make__
+</details>
+
+<details>
+<summary>Build the project</summary>
+
 ```bash
 make
 make install
 ```
+
 By default, the binary is installed to __/usr/local/bin__ & the static files required for the
 server go in __/usr/local/share/server-c/static__.
 You can pass in `STATIC_DIR`, while compiling to change the directory in which the server looks for the static files,
@@ -66,6 +82,7 @@ make DESTDIR=/TEMP_DIR install #TEMP_DIR is where the program files will be inst
 make clean
 ```
 __STATIC_DIR CAN ONLY BE CHANGED DURING COMPILATION__, i.e., during `make`, as it is used as a preprocessor macro.
+</details>
 
 ## Usage
 
