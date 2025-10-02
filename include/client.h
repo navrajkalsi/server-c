@@ -1,9 +1,10 @@
 #pragma once
 
-#include "utils.h"
 #include <openssl/crypto.h>
 #include <stddef.h>
 #include <sys/socket.h>
+
+#include "utils.h"
 
 // Client struct, store information on a client: file descriptor (returned by
 // accept function) ,client_address (filled by accept()) which can be parsed to

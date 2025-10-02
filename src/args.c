@@ -57,7 +57,7 @@ Config parse_args(int argc, char *argv[]) {
       args_parsed++;
       break;
     case 'v':
-      printf("%s version: %f\n", argv[0], VERSION);
+      printf("%s version: %.2f\n", argv[0], VERSION);
       exit(EXIT_SUCCESS);
     case '?': // If an unknown flag or no argument is passed for an option
               // 'optopt' is set to the flag

@@ -27,9 +27,9 @@ INSTALL ?= install
 NAME := server-c
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
-# CFLAGS ?= -Wall -Werror -Wextra -Iinclude
+CFLAGS ?= -Wall -Werror -Wextra -Iinclude
 # Dev Flags
-CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined -Iinclude
+# CFLAGS ?= -Wall -Werror -Wextra -Wconversion -g -fsanitize=address,undefined -Iinclude
 LDFLAGS ?= -lmagic -lpthread -lssl -lcrypto
 # Static_Dir for server files
 STATIC_DIR ?= $(datadir)/$(NAME)/static

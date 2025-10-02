@@ -14,10 +14,10 @@
 #define THREAD_POOL_SIZE 25
 // SSL files, can be changed during compilation
 #ifndef DOMAIN_CERT
-#define DOMAIN_CERT "/etc/ssl/navrajkalsi/domain.cert"
+#define DOMAIN_CERT "/etc/ssl/domain/domain.cert"
 #endif
 #ifndef PRIVATE_KEY
-#define PRIVATE_KEY "/etc/ssl/navrajkalsi/private.key"
+#define PRIVATE_KEY "/etc/ssl/domain/private.key"
 #endif
 
 // Utils.c specific

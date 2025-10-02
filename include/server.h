@@ -1,7 +1,8 @@
 #pragma once
 
-#include "args.h"
 #include <openssl/crypto.h>
+
+#include "args.h"
 
 // Supported request methods enum
 // typedef enum { GET } RequestMethod; // For future use

@@ -76,3 +76,9 @@
 
 ### Added
 - Custom MIMES are handled dynamically with new arrays of file extensions and replacement MIMES.
+
+## [2.3]
+### Added
+- `HTTPS support` with domain certificate & private key
+- Passing certificate & key from Make.
+- Version print
