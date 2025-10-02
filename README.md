@@ -1,6 +1,6 @@
 # Server-C
 
-![Server Demo](./media/demo2.gif)
+![Server Demo](./media/demo.gif)
 
 Lightweight HTTP Server in C, with HTTPS support.
 Serves static files, supports MIME type detection, handles directory listing (__with basic vim motions__) and file previews with proper HTTP responses.
@@ -163,7 +163,7 @@ server-c -a -p 8080 -r /DIR_TO_SERVE -s
 <br>
 
 ### Demo
-![Server Demo](./media/demo2.gif)
+![Server Demo](./media/demo.gif)
 
 <br>
 
