@@ -5,8 +5,9 @@ const files_list = document.querySelector("ul"), // Gets the first ul element
 let selected_file = null, // This is the 'li' element which would be selected
   abort_controller = null, // Global abort_controller, needs to be defined for every request
   response_content_type = null, // Content-Type header of the current response, used to decide whether the re-render the whole 'file-preview' element with .innerHTML or just use .textContent
-  current_url = window.location.href,
-  current_path = new URL(current_url).pathname;
+  current_url_object = new URL(window.location.href), // do not use location.href directly, as it may contain url params that may cause errors
+  current_url = current_url_object.protocol + "//" + current_url_object.hostname + ":" + current_url_object.port + current_url_object.pathname,
+  current_path = current_url_object.pathname;
 
 // Just so further requests do not contain double /
 // Won't cause any errors if it does but looks weird
