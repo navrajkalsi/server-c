@@ -2,11 +2,10 @@ const files_list = document.querySelector("ul"), // Gets the first ul element
   file_preview = document.getElementById("file-preview"),
   response_image = document.getElementById("response-image");
 
-// This is the 'li' element which would be selected
-let selected_file = null,
+let selected_file = null, // This is the 'li' element which would be selected
   abort_controller = null, // Global abort_controller, needs to be defined for every request
-  response_content_type = null, // Content-Type header of the current response, used to decide whether the re-render the whole 'file-preview' eleemnt with .innerHTML or just use .textContent
-  current_url = window.location.origin + window.location.pathname, // do not use location.href as it will also get the url_params
+  response_content_type = null, // Content-Type header of the current response, used to decide whether the re-render the whole 'file-preview' element with .innerHTML or just use .textContent
+  current_url = window.location.href,
   current_path = new URL(current_url).pathname;
 
 // Just so further requests do not contain double /
@@ -24,6 +23,8 @@ else
 function simplify_url(url) {
   if (!url)
     return;
+
+  console.log(url);
 
   // Replacing '//' with '/'
   let protocol_slash_index = 0;
@@ -46,6 +47,7 @@ function simplify_url(url) {
     if (url.endsWith("/"))
       url = url.slice(0, -1);
 
+  console.log(url);
   return url;
 }
 
@@ -204,7 +206,7 @@ async function make_request() {
   else {
     if (response_content_type.startsWith("image/")) // Handling Images
       img_preview(await response.blob());
-    else if (response_content_type.startsWith("text/")) // Handling Text Files (HTML, CSS, etc)
+    else if (response_content_type.startsWith("text/")) // Handling Text Files (HTML, CSS, etc.)
       text_preview(await response.text());
     else if (response_content_type == "application/pdf") // Handling PDF Files
       pdf_preview(await response.blob());
