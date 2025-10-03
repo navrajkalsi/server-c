@@ -24,8 +24,6 @@ function simplify_url(url) {
   if (!url)
     return;
 
-  console.log(url);
-
   // Replacing '//' with '/'
   let protocol_slash_index = 0;
 
@@ -47,7 +45,6 @@ function simplify_url(url) {
     if (url.endsWith("/"))
       url = url.slice(0, -1);
 
-  console.log(url);
   return url;
 }
 
