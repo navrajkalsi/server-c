@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 // Args.c specific
-#define VERSION 2.3
+#define VERSION "2.3"
 #define DEFAULT_PORT "1419"
 #define DEFAULT_ROOT_DIR "./"
 
@@ -44,6 +44,7 @@
 #define ASSIGN_IF_NULL(str, literal) !str.data ? STR(literal) : str
 
 // Response.c specific
+#define SERVER "Server-C/" VERSION " (Unix)"
 #define TRAILER STR("\r\n\r\n")
 #define SPACE STR(" ")
 #define LINEBREAK STR("\r\n")

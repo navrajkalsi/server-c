@@ -113,6 +113,8 @@ bool write_headers(const Client *client) {
       &client->connection,
       &STR("\r\nDate: "),
       &client->date,
+      &STR("\r\nServer: "),
+      &STR(SERVER),
       &STR("\r\nAccess-Control-Allow-Origin: "
            "*\r\nAccess-Control-Expose-Headers: Content-Type\r\n\r\n"),
       // Exposing Content-Type to make previewing easier in JS later
