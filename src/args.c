@@ -13,7 +13,8 @@
 #include "main.h"
 #include "utils.h"
 
-Config parse_args(int argc, char *argv[]) {
+Config parse_args(int argc, char *argv[])
+{
   // Root dir, Acceptable incoming IP, Port, Debug
   Config cfg = {.root_dir = {NULL, 0},
                 .port = DEFAULT_PORT,
@@ -25,11 +26,12 @@ Config parse_args(int argc, char *argv[]) {
            // because getopt() can return -1 as well, therefore we will be
            // comparing the ASCII values of char literals
 
-  // ':' is required to tell if the flag requires an argument after the flag
-  // in cmd line
+  // ':' is required to tell if the flag requires an argument after the flag in cmd line
   unsigned int args_parsed = 0; // For print debugging
-  while ((arg = getopt(argc, argv, "adhp:r:sv")) != -1) {
-    switch (arg) {
+  while ((arg = getopt(argc, argv, "adhp:r:sv")) != -1)
+  {
+    switch (arg)
+    {
     case 'a':
       cfg.accept_all = true;
       args_parsed++;
@@ -79,7 +81,8 @@ Config parse_args(int argc, char *argv[]) {
   }
 
   // If -r not supplied, then using ./ as root of server
-  if (!cfg.root_dir.data) {
+  if (!cfg.root_dir.data)
+  {
     if (!validate_root(DEFAULT_ROOT_DIR))
       err_n_die("Setting root directory failed.\n", true);
     cfg.root_dir = str_data_malloc(DEFAULT_ROOT_DIR);
@@ -90,11 +93,11 @@ Config parse_args(int argc, char *argv[]) {
   return cfg;
 }
 
-void print_usage(const char *prg) {
+void print_usage(const char *prg)
+{
   printf("\nUsage: %s [OPTIONS] [ARGS...]\n"
          "Options:\n"
-         "-a             Accept Incoming Connections from all IPs, defaults "
-         "to Localhost only.\n"
+         "-a             Accept Incoming Connections from all IPs, defaults to Localhost only.\n"
          "-d             Debug Mode, prints every major function call.\n"
          "-h             Print this help message.\n"
          "-p <port>      Port to listen on.\n"
@@ -104,7 +107,8 @@ void print_usage(const char *prg) {
          prg);
 }
 
-void print_args(unsigned int args_parsed, const Config *cfg) {
+void print_args(unsigned int args_parsed, const Config *cfg)
+{
   if (args_parsed)
     printf("\nParsed %u Argument(s).", args_parsed);
 
@@ -112,26 +116,27 @@ void print_args(unsigned int args_parsed, const Config *cfg) {
          "Port set to: %s\n"
          "Debug Mode set to: %s\n"
          "Protocol set to: %s\n",
-         cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off",
-         cfg->https ? "HTTPS" : "HTTP");
+         cfg->root_dir.data, cfg->port, cfg->debug ? "On" : "Off", cfg->https ? "HTTPS" : "HTTP");
 
-  cfg->accept_all
-      ? puts("Server Accepting Incoming Connections from all IPs.\n")
-      : puts("Server Accepting Incoming Connections from Localhost Only.\n");
+  cfg->accept_all ? puts("Server Accepting Incoming Connections from all IPs.\n")
+                  : puts("Server Accepting Incoming Connections from Localhost Only.\n");
 }
 
-bool validate_port(char *port_arg, char **out) {
+bool validate_port(char *port_arg, char **out)
+{
   if (!port_arg || !out)
     return null_ptr("Invalid port pointer");
 
   char *end;
   // 'optarg' is a global variable set by getopt()
   const long port = strtol(port_arg, &end, 10);
-  if (*end != '\0') {
+  if (*end != '\0')
+  {
     errno = EINVAL; // not a valid number
     return false;
   }
-  if (port < 0 || port > 65535) {
+  if (port < 0 || port > 65535)
+  {
     errno = ERANGE; // out of range
     return false;
   }
@@ -140,17 +145,18 @@ bool validate_port(char *port_arg, char **out) {
   return true;
 }
 
-bool validate_root(const char *root_dir) {
+bool validate_root(const char *root_dir)
+{
   if (!root_dir)
     return null_ptr("Invalid root pointer");
 
-  // No need to check the path, if it points to a dir or if it exists and
-  // permissions Chdir does all that, and makes request handling much simpler
-  // later
+  // No need to check the path, if it points to a dir or if it exists and permissions
+  // Chdir does all that, and makes request handling much simpler later
   return chdir(root_dir) == 0;
 }
 
-int is_dir(const Str *root_dir) {
+int is_dir(const Str *root_dir)
+{
   if (!root_dir || !root_dir->data)
     return null_ptr("Invalid root pointer");
 
@@ -167,7 +173,8 @@ int is_dir(const Str *root_dir) {
 }
 
 // for future, in case i want to redirect requests
-bool validate_target_url(const char *url) {
+bool validate_target_url(const char *url)
+{
   if (!url)
     return null_ptr("Invalid redirect target pointer");
 
@@ -186,8 +193,7 @@ bool validate_target_url(const char *url) {
     goto error;
 
   const char *dot = strchr(domain, '.');
-  // error if: dot does not exist, another dot is found, or TDL is less than 2
-  // chars long
+  // error if: dot does not exist, another dot is found, or TDL is less than 2 chars long
   if (!dot || strchr(dot + 1, '.') || strlen(dot + 1) < 2)
     goto error;
 
@@ -198,11 +204,13 @@ error:
   return false;
 }
 
-void arg_error(char opt, const char *msg) {
+void arg_error(char opt, const char *msg)
+{
   fprintf(stderr, "Option '-%c' %s\nUse -h for usage.\n", opt, msg);
 }
 
-void free_config_data(Config *cfg) {
+void free_config_data(Config *cfg)
+{
   if (!cfg)
     return;
 

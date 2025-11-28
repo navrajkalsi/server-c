@@ -3,7 +3,14 @@
 #include "client.h"
 
 // Also used in response.c
-typedef enum { ICO, HTML, JS, ERR, STATIC_LEN } STATIC_INDICES;
+typedef enum
+{
+  ICO,
+  HTML,
+  JS,
+  ERR,
+  STATIC_LEN
+} STATIC_INDICES;
 extern const char *STATIC_FILES[STATIC_LEN];
 extern const Str STATIC_PATHS[STATIC_LEN];
 
@@ -19,8 +26,7 @@ bool validate_http(const Str *http_ver);
 // removes excessive '/'s and checks for current dir request
 bool simplify_path(Str *path);
 
-// decodes an url by converting hex digits to ascii chars
-// does not support utf-8 yet
+// decodes an url by converting hex digits to ascii chars does not support utf-8 yet
 bool decode_path(Str *path);
 
 bool parse_params(Client *client, const Str *params);

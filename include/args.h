@@ -4,9 +4,9 @@
 
 #include "utils.h"
 
-typedef struct {
+typedef struct
+{
   Str root_dir;
-  // Str redirect_target; // to redirect http to a https url
   char *port;
   bool accept_all; // accept requests from localhost only or from all IPs
   bool debug;

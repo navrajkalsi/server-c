@@ -5,8 +5,7 @@
 // creates threads in the thread pool
 bool create_threads(void);
 
-// thread function that check for new work for a thread
-// has to return and accept void*
+// thread function that check for new work for a thread has to return and accept void*
 void *handle_thread(void *arg);
 
 // checks if server is stopped and then broadcasts the cond var

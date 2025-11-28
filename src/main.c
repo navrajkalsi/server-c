@@ -10,7 +10,8 @@ bool RUNNING = true;
 SSL_CTX *ssl_context = NULL;
 Config config;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   print_banner();
 
   config = parse_args(argc, argv);

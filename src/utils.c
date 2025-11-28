@@ -10,15 +10,17 @@
 #include "main.h"
 #include "utils.h"
 
-Str str_data_malloc(const char *in) {
-  return !in ? ERR_STR
-             : (Str){.data = strdup(in), .len = (ptrdiff_t)strlen(in)};
+Str str_data_malloc(const char *in)
+{
+  return !in ? ERR_STR : (Str){.data = strdup(in), .len = (ptrdiff_t)strlen(in)};
 }
 
-Str *str_malloc(const char *in) {
+Str *str_malloc(const char *in)
+{
   Str *ret = (Str *)malloc(sizeof *ret);
 
-  if (!ret) {
+  if (!ret)
+  {
     err("Malloc str", true);
     return NULL;
   }
@@ -29,7 +31,8 @@ Str *str_malloc(const char *in) {
   return ret;
 }
 
-void str_data_free(Str *in) {
+void str_data_free(Str *in)
+{
   if (!in || !in->data || !in->len)
     return;
 
@@ -38,7 +41,8 @@ void str_data_free(Str *in) {
   in->len = 0;
 }
 
-void str_free(Str **in) {
+void str_free(Str **in)
+{
   if (!in || !*in)
     return;
 
@@ -47,17 +51,20 @@ void str_free(Str **in) {
   *in = NULL;
 }
 
-void str_print(const Str *in) {
+void str_print(const Str *in)
+{
   if (in)
     printf("%.*s\n", (int)in->len, in->data);
 }
 
-bool equals(const Str *a, const Str *b) {
+bool equals(const Str *a, const Str *b)
+{
   return a->len == b->len && !memcmp(a->data, b->data, (size_t)(a->len));
 }
 
 // returns 0 len str in case of error
-Str takehead(Str str, ptrdiff_t take) {
+Str takehead(Str str, ptrdiff_t take)
+{
   if (!str.data || str.len < 0)
     return ERR_STR;
 
@@ -65,7 +72,8 @@ Str takehead(Str str, ptrdiff_t take) {
   return str;
 }
 
-Str drophead(Str str, ptrdiff_t drop) {
+Str drophead(Str str, ptrdiff_t drop)
+{
   if (!str.data || str.len < 0 || drop > str.len)
     return ERR_STR;
 
@@ -74,7 +82,8 @@ Str drophead(Str str, ptrdiff_t drop) {
   return str;
 }
 
-Cut cut(Str str, char sep) {
+Cut cut(Str str, char sep)
+{
   ptrdiff_t pos = 0;
 
   while (pos < str.len && str.data[pos] != sep)
@@ -88,7 +97,8 @@ Cut cut(Str str, char sep) {
   return ret;
 }
 
-ptrdiff_t contains(const Str *str, const char *chars) {
+ptrdiff_t contains(const Str *str, const char *chars)
+{
   ptrdiff_t len = (ptrdiff_t)strlen(chars);
   if (!str->len || !str->data || !len || len > str->len)
     return -1;
@@ -100,7 +110,8 @@ ptrdiff_t contains(const Str *str, const char *chars) {
   return -1;
 }
 
-bool err(const char *msg, bool print_errno) {
+bool err(const char *msg, bool print_errno)
+{
   // fputs(msg, stderr);
   // if (print_errno && errno)
   //   fprintf(stderr, "Error: {\n\tCode: %d\n\tMessage: %s\n}\n", errno,
@@ -113,12 +124,14 @@ bool err(const char *msg, bool print_errno) {
   return false;
 }
 
-void err_n_die(const char *msg, bool print_errno) {
+void err_n_die(const char *msg, bool print_errno)
+{
   (void)err(msg, print_errno);
   exit(EXIT_FAILURE);
 }
 
-bool setup_sig_handler(void) {
+bool setup_sig_handler(void)
+{
   struct sigaction sa_shutdown, sa_pipe;
 
   // Shutdown
@@ -134,33 +147,36 @@ bool setup_sig_handler(void) {
   // SIGINT (signal interput) is sent when Ctrl+C is pressed
   // SIGTERM (signal terminate) is sent when the process is killed from like
   // terminal with kill command
-  if (sigaction(SIGINT, &sa_shutdown, NULL) == -1 ||
-      sigaction(SIGTERM, &sa_shutdown, NULL) == -1 ||
+  if (sigaction(SIGINT, &sa_shutdown, NULL) == -1 || sigaction(SIGTERM, &sa_shutdown, NULL) == -1 ||
       sigaction(SIGPIPE, &sa_pipe, NULL) == -1)
     return false;
 
   return true;
 }
 
-void handle_shutdown(int sig) {
+void handle_shutdown(int sig)
+{
   (void)sig;
   puts("\nReceived kill signal");
   RUNNING = false;
   return;
 }
 
-void handle_sigpipe(int sig) {
+void handle_sigpipe(int sig)
+{
   (void)sig;
   puts("\nReceived SIGPIPE signal");
   return;
 }
 
-bool null_ptr(const char *msg) {
+bool null_ptr(const char *msg)
+{
   errno = EFAULT;
   return err(msg, true);
 }
 
-void print_banner(void) {
+void print_banner(void)
+{
   puts("\033[1;37m");
   puts("  ███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗        ██████╗");
   puts("  ██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗      ██╔════╝");
@@ -171,14 +187,15 @@ void print_banner(void) {
   puts("\033[0m");
 }
 
-bool int_to_string(int i, Str *out) {
-  static ptrdiff_t pos =
-      0; // the chars have to be written from the beginning, therefore this
-         // would serve as the index where the char would go
+bool int_to_string(int i, Str *out)
+{
+  static ptrdiff_t pos = 0; // the chars have to be written from the beginning, therefore this
+                            // would serve as the index where the char would go
 
   // set to ERR_STR before passing it in
   // base case, when last single int is divided by 10, 0 is returned
-  if (!i) {
+  if (!i)
+  {
     if (!out->len) // the input itself is 0
       *out = str_data_malloc("0");
     else if (!(out->data = (char *)malloc((size_t)out->len)))
@@ -197,15 +214,18 @@ bool int_to_string(int i, Str *out) {
   return true;
 }
 
-bool print_debug(const char *msg) {
-  if (config.debug) {
+bool print_debug(const char *msg)
+{
+  if (config.debug)
+  {
     printf("\tD -> ");
     puts(msg);
   }
   return true;
 }
 
-void node_free(StrNode *node) {
+void node_free(StrNode *node)
+{
   if (!node)
     return;
 
@@ -215,21 +235,24 @@ void node_free(StrNode *node) {
   free(node);
 }
 
-void list_free(StrList *list) {
+void list_free(StrList *list)
+{
   if (!list)
     return;
 
   StrNode *current = list->head;
   StrNode *next = NULL;
 
-  while (current) {
+  while (current)
+  {
     next = current->next;
     node_free(current);
     current = next;
   }
 }
 
-void list_append(StrList *list, StrNode *node) {
+void list_append(StrList *list, StrNode *node)
+{
   if (!list || !node)
     return (void)null_ptr("Invalid list or node pointer");
 
@@ -241,10 +264,12 @@ void list_append(StrList *list, StrNode *node) {
   return;
 }
 
-StrNode *str_node_malloc(Str *str) {
+StrNode *str_node_malloc(Str *str)
+{
   StrNode *ret = malloc(sizeof *ret);
 
-  if (!ret) {
+  if (!ret)
+  {
     err("Malloc str node", true);
     return NULL;
   }
@@ -254,7 +279,8 @@ StrNode *str_node_malloc(Str *str) {
   return ret;
 }
 
-void str_node_free(StrNode **node) {
+void str_node_free(StrNode **node)
+{
   if (!node || !*node)
     return;
 
@@ -264,7 +290,8 @@ void str_node_free(StrNode **node) {
   to_free = NULL;
 }
 
-void list_print(StrList *list) {
+void list_print(StrList *list)
+{
   if (!list)
     return;
 

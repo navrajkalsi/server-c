@@ -12,7 +12,8 @@
 // pointer to read_buffer (to read request into), pointer to request_method
 // (filled by parse_request()), pointer to request_path (also filled by
 // parse_request())
-typedef struct {
+typedef struct
+{
   struct sockaddr_storage address; // address info of the client
   Str request;
   Str request_method;
@@ -31,17 +32,16 @@ typedef struct {
   Str connection;             // keep-alive or close
   Str date;                   // current date and time
   SSL *ssl;                   // ssl object for client, in case of https
-  ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is
-                              // requested
+  ptrdiff_t static_delimiter; // index of ~ in the SERVER_HTML in case a dir is requested
   int fd;
   socklen_t address_len;
   bool request_static;
-  bool show_dir; // from url param, defualts to previewing dir, rather than
-                 // serving index.html
+  bool show_dir; // from url param, defualts to previewing dir, rather than serving index.html
 } Client;
 
 // Linked list node for clients, for threading
-typedef struct client_node {
+typedef struct client_node
+{
   Client *client;
   struct client_node *next;
 } ClientNode;
@@ -63,8 +63,7 @@ void enqueue_client(Client *client);
 // removes a client from the list when the response is done or an error occurs
 Client *dequeue_client(void);
 
-// initializes the client with malloc and fills it with default values of fields
-// user calls free
+// initializes the client with malloc and fills it with default values of fields user calls free
 Client *client_init(void);
 
 // prints the clients linked list

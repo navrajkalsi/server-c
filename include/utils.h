@@ -4,23 +4,27 @@
 #include <stddef.h>
 
 // Huge time saver string struct
-typedef struct {
+typedef struct
+{
   char *data;
   ptrdiff_t len;
 } Str;
 
 // Thanks to: skeeto on Reddit:)
-typedef struct strNode {
+typedef struct strNode
+{
   struct strNode *next;
   Str *str;
 } StrNode;
 
-typedef struct {
+typedef struct
+{
   StrNode *head;
   StrNode *tail;
 } StrList;
 
-typedef struct {
+typedef struct
+{
   Str head;
   Str tail;
   bool found;
@@ -49,8 +53,7 @@ Str takehead(Str str, ptrdiff_t take);
 Str drophead(Str str, ptrdiff_t drop);
 
 // cuts a string around the separator without copying str
-// The head and tail are just pointers to the org str with different lengths and
-// starting values
+// The head and tail are just pointers to the org str with different lengths and starting values
 Cut cut(Str str, char sep);
 
 // checks if str contains chars anywhere

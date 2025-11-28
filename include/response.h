@@ -2,9 +2,13 @@
 
 #include "client.h"
 
-// used to overwrite libmagic mime types, where libmagic is not giving correct
-// mimes
-typedef enum { CSS_EXT, JS_EXT, CUSTOM_MIMES_LEN } CUSTOM_MIME_INDICES;
+// used to overwrite libmagic mime types, where libmagic is not giving correct mimes
+typedef enum
+{
+  CSS_EXT,
+  JS_EXT,
+  CUSTOM_MIMES_LEN
+} CUSTOM_MIME_INDICES;
 extern const char *CUSTOM_MIME_EXT[CUSTOM_MIMES_LEN]; // file extensions
 extern const char *CUSTOM_MIMES[CUSTOM_MIMES_LEN];    // replacement mimes
 

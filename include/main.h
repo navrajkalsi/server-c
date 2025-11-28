@@ -22,7 +22,7 @@
 
 // Utils.c specific
 #define ERR_STR (Str){NULL, 0}
-#define STR(str)                                                               \
+#define STR(str)                                                                                   \
   (Str) { str, (long)(sizeof(str) - 1) }
 
 // Client.c specific
@@ -32,8 +32,7 @@
 #ifndef STATIC_DIR
 #define STATIC_DIR "/usr/local/share/server-c/static"
 #endif
-// Helps me concat without using strcat, static dir with a static file
-// Macros are amazing
+// Helps me concat without using strcat, static dir with a static file Macros are amazing
 #define STATIC_PATH(file) STATIC_DIR "/" file
 // #define SERVER_HTML "_server.html"
 #define SERVER_HTML "_server.html"

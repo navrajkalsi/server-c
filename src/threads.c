@@ -14,7 +14,8 @@ pthread_t thread_pool[THREAD_POOL_SIZE];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 
-bool create_threads(void) {
+bool create_threads(void)
+{
   if (THREAD_POOL_SIZE < 1)
     return err("Thread pool insufficient", false);
 
@@ -25,21 +26,20 @@ bool create_threads(void) {
   return true;
 }
 
-void *handle_thread(void *arg) {
+void *handle_thread(void *arg)
+{
   (void)arg;
   if (config.debug)
     printf("Currently in thread: %lu\n", (unsigned long)pthread_self());
 
-  while (RUNNING) {
+  while (RUNNING)
+  {
     Client *client = NULL;
-    // mutex lock ensures that only one of the threads tries to connect and
-    // handle a client
+    // mutex lock ensures that only one of the threads tries to connect and handle a client
     pthread_mutex_lock(&mutex);
     // this thread now waits till it is signalled
-    // this also releases the mutex lock so that other threads can access the
-    // clients list
-    // when signalled, it acquires the lock again to continue handling
-    // connection
+    // this also releases the mutex lock so that other threads can access the clients list
+    // when signalled, it acquires the lock again to continue handling connection
     while (!(client = dequeue_client()) && RUNNING)
       // waiting only if there is no new work
       pthread_cond_wait(&condition_var, &mutex);
@@ -57,7 +57,8 @@ void *handle_thread(void *arg) {
   return (void *)print_debug("Thread handled");
 }
 
-void cleanup_pool(void) {
+void cleanup_pool(void)
+{
   if (RUNNING)
     return (void)err("Server not stopped", false);
 
@@ -72,7 +73,8 @@ void cleanup_pool(void) {
   // remove all clients
   pthread_mutex_lock(&mutex);
   Client *client;
-  while ((client = dequeue_client())) {
+  while ((client = dequeue_client()))
+  {
     close(client->fd);
     free_client(&client);
   }
